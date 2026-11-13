@@ -3,14 +3,12 @@ package tn.ennour.maan
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.Location
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import android.telephony.SmsManager
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -150,7 +148,6 @@ class MainActivity : AppCompatActivity() {
     private fun askPermissions() {
         val list = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 33) list.add(Manifest.permission.POST_NOTIFICATIONS)
-        if (Config.SEND_SOS_SMS) list.add(Manifest.permission.SEND_SMS)
         val missing = list.filter { !granted(it) }
         if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray())
     }
@@ -277,7 +274,6 @@ class MainActivity : AppCompatActivity() {
 
         // 1) فوراً بآخر موقع معروف
         Loc.last(this) { quick ->
-            if (quick != null) sendSms(quick)
             Sync.send(this, "sos", quick) { ok, _ ->
                 if (!ok) toast("لا يوجد إنترنت. سنعيد المحاولة تلقائياً. اتصل بالمرافق.")
                 startTracking()
@@ -285,31 +281,10 @@ class MainActivity : AppCompatActivity() {
             }
             // 2) ثم موقع جديد دقيق
             Loc.current(this, 12000) { fresh ->
-                if (quick == null) sendSms(fresh)
                 if (fresh != null && Store.isSos(this)) {
                     Sync.send(this, "sos", fresh) { _, _ -> render() }
                 }
             }
-        }
-    }
-
-    /** رسالة SMS احتياطية للمرافق، تصل حتى بدون إنترنت. */
-    private fun sendSms(loc: Location?) {
-        if (!Config.SEND_SOS_SMS || !granted(Manifest.permission.SEND_SMS)) return
-        val phone = Store.get(this, Store.GUIDE_PHONE).filter { it.isDigit() || it == '+' }
-        if (phone.isEmpty()) return
-        try {
-            val sb = StringBuilder("SOS معاً: ")
-            sb.append(Store.get(this, Store.NAME))
-            val room = Store.get(this, Store.ROOM)
-            if (room.isNotEmpty()) sb.append(" غرفة ").append(room)
-            val lm = Store.get(this, Store.LANDMARK)
-            if (lm.isNotEmpty()) sb.append(" - ").append(lm)
-            if (loc != null) sb.append(" https://maps.google.com/?q=").append(loc.latitude).append(",").append(loc.longitude)
-            @Suppress("DEPRECATION")
-            val sms: SmsManager = if (Build.VERSION.SDK_INT >= 31) getSystemService(SmsManager::class.java) else SmsManager.getDefault()
-            sms.sendMultipartTextMessage(phone, null, sms.divideMessage(sb.toString()), null, null)
-        } catch (e: Exception) {
         }
     }
 
