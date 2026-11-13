@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.telephony.SmsManager
 import android.view.View
 import android.widget.AdapterView
@@ -50,8 +51,24 @@ class MainActivity : AppCompatActivity() {
     )
     private val floors = listOf("— الطابق —", "الطابق الأرضي", "الطابق الأول", "الطابق الثاني", "السطح", "القبو")
 
+    private var askedFromButton = false
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         startTracking()
+        if (askedFromButton && !Loc.allowed(this)) {
+            // رُفض الإذن نهائياً: نفتح إعدادات التطبيق
+            AlertDialog.Builder(this)
+                .setTitle("إذن الموقع مرفوض")
+                .setMessage("افتح الإعدادات ← الأذونات ← الموقع ← واختر «السماح».")
+                .setPositiveButton("فتح الإعدادات") { _, _ ->
+                    try {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                    } catch (e: Exception) {
+                    }
+                }
+                .setNegativeButton("لاحقاً", null)
+                .show()
+        }
+        askedFromButton = false
     }
 
     private val ticker = object : Runnable {
@@ -83,7 +100,7 @@ class MainActivity : AppCompatActivity() {
         btnSos = findViewById(R.id.btnSos)
 
         btnOk.setOnClickListener { onOk() }
-        btnSos.setOnClickListener { confirmSos() }
+        btnSos.setOnClickListener { sendSos() }
         findViewById<MaterialButton>(R.id.btnCall).setOnClickListener { callGuide() }
         findViewById<MaterialButton>(R.id.btnWhatsapp).setOnClickListener { whatsappGuide() }
         findViewById<TextView>(R.id.tvLeave).setOnClickListener { confirmLeave() }
@@ -165,7 +182,11 @@ class MainActivity : AppCompatActivity() {
 
         val last = Store.lastSent(this)
         val mins = (System.currentTimeMillis() - last) / 60000
-        val gps = if (Loc.allowed(this)) "" else " · ⚠️ الموقع غير مفعّل"
+        val gps = when {
+            !Loc.allowed(this) -> " · ⚠️ إذن الموقع مرفوض"
+            !Loc.enabled(this) -> " · ⚠️ شغّل الموقع (GPS)"
+            else -> ""
+        }
         tvStatus.text = when {
             last == 0L -> "لم يُرسل الموقع بعد$gps"
             mins < 1 -> "🟢 آخر تحديث: الآن$gps"
@@ -205,39 +226,69 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ---------------- الأزرار ----------------
+    /** يتأكد أن الموقع مسموح ومشغّل، وإلا يطلب من المستخدم تفعيله. */
+    private fun checkLocationReady() {
+        if (!Loc.allowed(this)) {
+            askedFromButton = true
+            permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        } else if (!Loc.enabled(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("الموقع (GPS) مغلق")
+                .setMessage("شغّل الموقع في الهاتف حتى يعرف المرافق مكانك.")
+                .setPositiveButton("تشغيل الموقع") { _, _ ->
+                    try {
+                        startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    } catch (e: Exception) {
+                    }
+                }
+                .setNegativeButton("لاحقاً", null)
+                .show()
+        }
+    }
+
     private fun onOk() {
         btnOk.isEnabled = false
+        checkLocationReady()
         toast("جاري تحديد موقعك…")
-        Loc.current(this, 8000) { loc ->
+        startTracking()
+        Loc.current(this, 12000) { loc ->
             Sync.send(this, "ok", loc) { ok, err ->
                 btnOk.isEnabled = true
-                toast(if (ok) "✅ تم إرسال موقعك للمرافق" else (err ?: "تعذّر الإرسال"))
+                toast(
+                    when {
+                        !ok -> err ?: "تعذّر الإرسال"
+                        loc != null -> "✅ تم إرسال موقعك للمرافق"
+                        else -> "تم الإرسال، لكن لم نجد موقعك. اختر مكانك من القائمة."
+                    }
+                )
                 startTracking()
                 render()
             }
         }
     }
 
-    private fun confirmSos() {
-        AlertDialog.Builder(this)
-            .setTitle("هل تحتاج مساعدة؟")
-            .setMessage("سيصل نداؤك وموقعك إلى المرافق فوراً.")
-            .setPositiveButton("نعم، أحتاج مساعدة") { _, _ -> sendSos() }
-            .setNegativeButton("لا", null)
-            .show()
-    }
-
+    /** الاستغاثة: تُرسل فوراً بدون سؤال، ثم يُرسل الموقع الدقيق حالما يتوفر. */
     private fun sendSos() {
         Store.set(this, Store.STATUS, "sos")
         Store.setSosPending(this, true)
         render()
+        checkLocationReady()
         startTracking()
-        Loc.last(this) { loc ->
-            sendSms(loc)
-            Sync.send(this, "sos", loc) { ok, _ ->
+
+        // 1) فوراً بآخر موقع معروف
+        Loc.last(this) { quick ->
+            if (quick != null) sendSms(quick)
+            Sync.send(this, "sos", quick) { ok, _ ->
                 if (!ok) toast("لا يوجد إنترنت. سنعيد المحاولة تلقائياً. اتصل بالمرافق.")
                 startTracking()
                 render()
+            }
+            // 2) ثم موقع جديد دقيق
+            Loc.current(this, 12000) { fresh ->
+                if (quick == null) sendSms(fresh)
+                if (fresh != null && Store.isSos(this)) {
+                    Sync.send(this, "sos", fresh) { _, _ -> render() }
+                }
             }
         }
     }
