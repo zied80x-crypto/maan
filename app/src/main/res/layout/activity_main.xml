@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:layoutDirection="rtl">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- بطاقة المعتمر -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tvName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/ink"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRoom"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/ink"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/tvHotel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/brand"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/muted"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- رسالة المرافق -->
+        <TextView
+            android:id="@+id/tvBroadcast"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/card_msg"
+            android:padding="14dp"
+            android:textColor="@color/ink"
+            android:textSize="20sp"
+            android:visibility="gone" />
+
+        <!-- حالة الاستغاثة -->
+        <TextView
+            android:id="@+id/tvSos"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/card_sos"
+            android:gravity="center"
+            android:lineSpacingExtra="6dp"
+            android:padding="18dp"
+            android:text="اطمئن 🤍\nوصل نداؤك إلى المرافق\nابقَ في مكانك، هو في الطريق إليك"
+            android:textColor="@color/sos"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- المكان اليدوي -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="أين أنت الآن؟"
+            android:textColor="@color/ink"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/spLandmark"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/card" />
+
+        <Spinner
+            android:id="@+id/spFloor"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/card" />
+
+        <!-- الأزرار الثلاثة -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnOk"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_marginTop="16dp"
+            android:text="✅  أنا بخير\nتحديث موقعي الآن"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/ok"
+            app:cornerRadius="20dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSos"
+            android:layout_width="match_parent"
+            android:layout_height="130dp"
+            android:layout_marginTop="12dp"
+            android:text="🚨  تائه\nأحتاج مساعدة"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/sos"
+            app:cornerRadius="20dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCall"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_marginTop="12dp"
+            android:text="📞  اتصل بالمرافق"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/call"
+            app:cornerRadius="20dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnWhatsapp"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="12dp"
+            android:text="واتساب المرافق"
+            android:textSize="20sp"
+            app:backgroundTint="@color/wa"
+            app:cornerRadius="20dp" />
+
+        <TextView
+            android:id="@+id/tvLeave"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:padding="12dp"
+            android:text="الخروج من الرحلة"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+    </LinearLayout>
+</ScrollView>

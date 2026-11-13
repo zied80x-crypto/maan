@@ -1,0 +1,13 @@
+<resources>
+    <color name="brand">#0F5C4D</color>
+    <color name="bg">#F4F1EA</color>
+    <color name="ink">#1D2421</color>
+    <color name="muted">#6B736F</color>
+    <color name="ok">#16A34A</color>
+    <color name="sos">#DC2626</color>
+    <color name="call">#2563EB</color>
+    <color name="wa">#25D366</color>
+    <color name="white">#FFFFFF</color>
+    <color name="sos_bg">#FDECEC</color>
+    <color name="msg_bg">#FFF7E6</color>
+</resources>
