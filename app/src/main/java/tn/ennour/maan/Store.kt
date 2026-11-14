@@ -32,6 +32,9 @@ object Store {
     fun lastSent(ctx: Context): Long = p(ctx).getLong("last_sent", 0L)
     fun setLastSent(ctx: Context, v: Long) { p(ctx).edit().putLong("last_sent", v).apply() }
 
+    fun lastOk(ctx: Context): Long = p(ctx).getLong("last_ok", 0L)
+    fun setLastOk(ctx: Context, v: Long) { p(ctx).edit().putLong("last_ok", v).apply() }
+
     fun lastMsgId(ctx: Context): Long = p(ctx).getLong("last_msg_id", -1L)
     fun setLastMsgId(ctx: Context, v: Long) { p(ctx).edit().putLong("last_msg_id", v).apply() }
 

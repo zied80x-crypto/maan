@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -30,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvStatus: TextView
     private lateinit var tvBroadcast: TextView
     private lateinit var tvSos: TextView
+    private lateinit var tvNetWarn: TextView
     private lateinit var spLandmark: Spinner
     private lateinit var spFloor: Spinner
     private lateinit var btnOk: MaterialButton
@@ -97,6 +100,7 @@ class MainActivity : AppCompatActivity() {
         tvStatus = findViewById(R.id.tvStatus)
         tvBroadcast = findViewById(R.id.tvBroadcast)
         tvSos = findViewById(R.id.tvSos)
+        tvNetWarn = findViewById(R.id.tvNetWarn)
         spLandmark = findViewById(R.id.spLandmark)
         spFloor = findViewById(R.id.spFloor)
         btnOk = findViewById(R.id.btnOk)
@@ -211,6 +215,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isOnline(): Boolean {
+        return try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val n = cm.activeNetwork ?: return false
+            val c = cm.getNetworkCapabilities(n) ?: return false
+            c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } catch (e: Exception) { true }
+    }
+
     // ---------------- العرض ----------------
     private fun render() {
         if (isFinishing || !ready) return
@@ -228,7 +241,7 @@ class MainActivity : AppCompatActivity() {
         }
         tvHotel.visibility = if (hotel.isEmpty()) View.GONE else View.VISIBLE
 
-        val last = Store.lastSent(this)
+        val last = Store.lastOk(this)
         val mins = (System.currentTimeMillis() - last) / 60000
         val gps = when {
             !Loc.allowed(this) -> " · ⚠️ إذن الموقع مرفوض — اضغط هنا"
@@ -247,6 +260,15 @@ class MainActivity : AppCompatActivity() {
         tvBroadcast.visibility = if (msg.isEmpty()) View.GONE else View.VISIBLE
 
         val sos = Store.isSos(this)
+        if (!isOnline()) {
+            tvNetWarn.text = if (sos)
+                "⚠️ لا يوجد اتصال بالإنترنت\nالرجاء تشغيل الإنترنت والبقاء في مكانك"
+            else
+                "⚠️ لا يوجد اتصال بالإنترنت\nموقعك لا يصل للمرافق الآن"
+            tvNetWarn.visibility = View.VISIBLE
+        } else {
+            tvNetWarn.visibility = View.GONE
+        }
         tvSos.visibility = if (sos) View.VISIBLE else View.GONE
         btnSos.visibility = if (sos) View.GONE else View.VISIBLE
         btnOk.text = if (sos) "✅  أنا بخير الآن\nإلغاء النداء" else "✅  أنا بخير\nتحديث موقعي الآن"

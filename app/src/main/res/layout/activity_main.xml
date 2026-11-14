@@ -54,6 +54,21 @@
                 android:textSize="15sp" />
         </LinearLayout>
 
+        <!-- تنبيه عدم الاتصال بالإنترنت -->
+        <TextView
+            android:id="@+id/tvNetWarn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/card_sos"
+            android:gravity="center"
+            android:lineSpacingExtra="5dp"
+            android:padding="16dp"
+            android:textColor="@color/sos"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- رسالة المرافق -->
         <TextView
             android:id="@+id/tvBroadcast"

@@ -58,6 +58,7 @@ object Sync {
                 val r = Api.call(action, b, token)
                 ok = true
                 Store.setLastSent(app, System.currentTimeMillis())
+                Store.setLastOk(app, System.currentTimeMillis())
                 when (action) {
                     "sos" -> { Store.setSosPending(app, false); Store.set(app, Store.STATUS, "sos") }
                     "ok" -> { Store.setSosPending(app, false); Store.set(app, Store.STATUS, "ok") }
