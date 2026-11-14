@@ -14,7 +14,20 @@ android {
         versionCode = 7
         versionName = "1.5"
     }
+    // مفتاح توقيع ثابت (يأتي من أسرار GitHub) حتى تتثبّت التحديثات فوق النسخة القديمة.
+    // بدون الأسرار يُستعمل مفتاح مؤقت كما كان.
+    val ksPath = System.getenv("MAAN_KEYSTORE_FILE")
+    val hasFixedKey = ksPath != null && file(ksPath).exists()
+    signingConfigs {
+        if (hasFixedKey) create("fixed") {
+            storeFile = file(ksPath!!)
+            storePassword = System.getenv("MAAN_KEYSTORE_PASSWORD")
+            keyAlias = "maan"
+            keyPassword = System.getenv("MAAN_KEYSTORE_PASSWORD")
+        }
+    }
     buildTypes {
+        debug { if (hasFixedKey) signingConfig = signingConfigs.getByName("fixed") }
         release { isMinifyEnabled = false }
     }
     compileOptions {

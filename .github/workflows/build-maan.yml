@@ -5,6 +5,9 @@ on:
     branches: [maan]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,9 +20,32 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
-      - name: Build debug APK
+      - name: Prepare fixed signing key (if configured)
+        env:
+          KS: ${{ secrets.MAAN_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/maan.p12"
+            echo "MAAN_KEYSTORE_FILE=$RUNNER_TEMP/maan.p12" >> "$GITHUB_ENV"
+            echo "Fixed signing key: yes"
+          else
+            echo "Fixed signing key: no (temporary debug key)"
+          fi
+      - name: Build APK
+        env:
+          MAAN_KEYSTORE_PASSWORD: ${{ secrets.MAAN_KEYSTORE_PASSWORD }}
         run: gradle assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: maan-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish as latest release (stable download link)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk maan.apk
+          VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          gh release create "v${VER}-${{ github.run_number }}" maan.apk \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Maan ${VER} (build ${{ github.run_number }})" \
+            --notes "Android app for pilgrims and guides. Download maan.apk and install."
