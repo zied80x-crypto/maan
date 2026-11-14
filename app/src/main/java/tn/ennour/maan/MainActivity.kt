@@ -198,7 +198,7 @@ class MainActivity : AppCompatActivity() {
         batteryPrompted = true
         AlertDialog.Builder(this)
             .setTitle("مهم جداً: لا توقف التطبيق")
-            .setMessage("حتى يبقى موقعك يصل للمرافق والشاشة مقفلة، اسمح لـ «معاً» بالعمل بدون قيود على البطارية.")
+            .setMessage("حتى يبقى موقعك يصل للمرافق والشاشة مقفلة، اسمح لـ «في عيني» بالعمل بدون قيود على البطارية.")
             .setPositiveButton("السماح") { _, _ -> openBatterySettings() }
             .setNegativeButton("لاحقاً", null)
             .show()

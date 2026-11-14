@@ -39,7 +39,7 @@ object Notifier {
         val text = if (Store.isSos(ctx)) "تم إرسال نداء المساعدة للمرافق" else "موقعك يُشارك مع مرافق الرحلة"
         return NotificationCompat.Builder(ctx, CH_TRACK)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("معاً")
+            .setContentTitle("في عيني")
             .setContentText(text)
             .setOngoing(true)
             .setContentIntent(openApp(ctx))

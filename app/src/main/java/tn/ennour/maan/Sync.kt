@@ -27,7 +27,7 @@ object Sync {
     private fun applyServerStatus(app: Context, status: String) {
         if (Store.sosPending(app) || status.isEmpty()) return
         if (Store.isSos(app) && status == "ok") {
-            Notifier.message(app, "معاً", "المرافق أغلق نداء المساعدة ✅")
+            Notifier.message(app, "في عيني", "المرافق أغلق نداء المساعدة ✅")
         }
         Store.set(app, Store.STATUS, status)
     }

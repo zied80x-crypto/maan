@@ -16,7 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:text="معاً"
+            android:text="في عيني"
             android:textColor="@color/brand"
             android:textSize="44sp"
             android:textStyle="bold" />
