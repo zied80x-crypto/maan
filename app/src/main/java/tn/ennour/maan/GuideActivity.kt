@@ -5,18 +5,26 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
+import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 /** وضع المرافق: يعرض لوحة المرافق (نفس لوحة الويب) داخل التطبيق. */
 class GuideActivity : AppCompatActivity() {
     private lateinit var web: WebView
+    private var geoOrigin: String? = null
+    private var geoCallback: GeolocationPermissions.Callback? = null
+    private val locPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        geoCallback?.invoke(geoOrigin, Loc.allowed(this), false)
+        geoCallback = null
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,7 +37,21 @@ class GuideActivity : AppCompatActivity() {
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.mediaPlaybackRequiresUserGesture = false   // صوت الإنذار بدون لمس
-        web.webChromeClient = WebChromeClient()                 // نوافذ التأكيد
+        web.settings.setGeolocationEnabled(true)
+        web.webChromeClient = object : WebChromeClient() {       // نوافذ التأكيد + إذن الموقع
+            override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
+                if (Loc.allowed(this@GuideActivity)) {
+                    callback.invoke(origin, true, false)
+                } else {
+                    geoOrigin = origin
+                    geoCallback = callback
+                    locPermission.launch(arrayOf(
+                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                    ))
+                }
+            }
+        }
         val panelHost = Uri.parse(Config.PANEL_URL).host
 
         web.webViewClient = object : WebViewClient() {

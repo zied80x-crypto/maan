@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spFloor: Spinner
     private lateinit var btnOk: MaterialButton
     private lateinit var btnSos: MaterialButton
+    private lateinit var btnFamily: MaterialButton
 
     private val handler = Handler(Looper.getMainLooper())
     private var shownCity: String? = null
@@ -116,6 +117,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnCall).setOnClickListener { callGuide() }
         findViewById<MaterialButton>(R.id.btnWhatsapp).setOnClickListener { whatsappGuide() }
         findViewById<TextView>(R.id.tvLeave).setOnClickListener { confirmLeave() }
+        btnFamily = findViewById(R.id.btnFamily)
+        btnFamily.setOnClickListener { familyShare() }
+        findViewById<MaterialButton>(R.id.btnHotel).setOnClickListener { showHotelCard() }
         tvStatus.setOnClickListener {
             when {
                 !Loc.allowed(this) || !Loc.enabled(this) -> checkLocationReady()
@@ -264,6 +268,7 @@ class MainActivity : AppCompatActivity() {
         tvBroadcast.text = "📢 رسالة من المرافق:\n$msg"
         tvBroadcast.visibility = if (msg.isEmpty()) View.GONE else View.VISIBLE
 
+        btnFamily.text = if (Store.get(this, Store.FAMILY) == "1") "👪  عائلتي تتابعني ✓" else "👪  طمّن عائلتي"
         val sos = Store.isSos(this)
         if (!isOnline()) {
             tvNetWarn.text = if (sos)
@@ -363,6 +368,97 @@ class MainActivity : AppCompatActivity() {
                 if (fresh != null && Store.isSos(this)) {
                     Sync.send(this, "sos", fresh) { _, _ -> render() }
                 }
+            }
+        }
+    }
+
+    // ---------------- رجّعني للفندق ----------------
+    /** بطاقة الفندق: يريها المعتمر لسائق التاكسي، أو يفتح منها الطريق. */
+    private fun showHotelCard() {
+        val hotel = Store.get(this, Store.HOTEL)
+        val city = Store.get(this, Store.CITY)
+        val room = Store.get(this, Store.ROOM)
+        val lat = Store.get(this, Store.HOTEL_LAT).toDoubleOrNull()
+        val lng = Store.get(this, Store.HOTEL_LNG).toDoubleOrNull()
+        val sb = StringBuilder()
+        sb.append(if (hotel.isEmpty()) "اسم الفندق غير مسجّل" else hotel)
+        if (city.isNotEmpty()) sb.append("\n").append(city)
+        if (room.isNotEmpty()) sb.append("\nغرفة ").append(room)
+        val gName = Store.get(this, Store.GUIDE_NAME)
+        if (guidePhone().isNotEmpty()) sb.append("\n\nالمرافق: ").append(gName).append("\n").append(guidePhone())
+        if (lat == null || lng == null) sb.append("\n\nالمرافق لم يحفظ موقع الفندق بعد. اتصل به أو أرِ هذه البطاقة لسائق التاكسي.")
+
+        val tv = TextView(this)
+        tv.text = sb.toString()
+        tv.textSize = 24f
+        tv.setTextColor(ContextCompat.getColor(this, R.color.ink))
+        tv.gravity = android.view.Gravity.CENTER
+        tv.setLineSpacing(8f, 1f)
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        tv.setPadding(pad, pad, pad, pad / 2)
+
+        val d = AlertDialog.Builder(this).setTitle("🏨 فندقي").setView(tv)
+            .setNegativeButton("إغلاق", null)
+            .setNeutralButton("📞 المرافق") { _, _ -> callGuide() }
+        if (lat != null && lng != null) {
+            d.setPositiveButton("🧭 الطريق للفندق") { _, _ -> openRoute(lat, lng) }
+        }
+        d.show()
+    }
+
+    private fun openRoute(lat: Double, lng: Double) {
+        try {
+            // خرائط Google: طريق للمشي
+            val i = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$lat,$lng&mode=w"))
+            i.setPackage("com.google.android.apps.maps")
+            startActivity(i)
+        } catch (e: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking")))
+            } catch (e2: Exception) {
+                toast("تعذّر فتح الخرائط")
+            }
+        }
+    }
+
+    // ---------------- طمّن عائلتي ----------------
+    private fun familyShare() {
+        if (Store.get(this, Store.FAMILY) == "1") {
+            AlertDialog.Builder(this)
+                .setTitle("👪 عائلتي تتابعني")
+                .setItems(arrayOf("إرسال الرابط من جديد", "إيقاف المشاركة", "إلغاء")) { _, which ->
+                    when (which) {
+                        0 -> sendFamilyLink()
+                        1 -> Sync.family(this, "family_stop") { _, err ->
+                            toast(err ?: "تم إيقاف المشاركة. الرابط القديم لم يعد يعمل.")
+                            render()
+                        }
+                    }
+                }
+                .show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("👪 طمّن عائلتي")
+            .setMessage("سنرسل لعائلتك رابطاً يرون منه: هل أنت بخير، آخر ظهور لك، المكان التقريبي واسم الفندق.\n\nلا يرون موقعك بالضبط، وتستطيع إيقاف المشاركة متى شئت.")
+            .setPositiveButton("إرسال الرابط") { _, _ -> sendFamilyLink() }
+            .setNegativeButton("إلغاء", null)
+            .show()
+    }
+
+    private fun sendFamilyLink() {
+        Sync.family(this, "family_link") { token, err ->
+            render()
+            if (token.isNullOrEmpty()) { toast(err ?: "تعذّر إنشاء الرابط"); return@family }
+            val url = Config.PANEL_URL + "family.html?t=" + token
+            val text = "السلام عليكم، تابعوا حالتي في العمرة من هذا الرابط:\n" + url
+            try {
+                val i = Intent(Intent.ACTION_SEND)
+                i.type = "text/plain"
+                i.putExtra(Intent.EXTRA_TEXT, text)
+                startActivity(Intent.createChooser(i, "أرسل الرابط لعائلتك"))
+            } catch (e: Exception) {
+                toast("تعذّر فتح المشاركة")
             }
         }
     }

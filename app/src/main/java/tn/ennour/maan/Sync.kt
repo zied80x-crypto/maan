@@ -86,7 +86,10 @@ object Sync {
             try {
                 val r = Api.call("me", JSONObject(), token)
                 r.optJSONObject("trip")?.let { saveTrip(app, it) }
-                r.optJSONObject("pilgrim")?.let { applyServerStatus(app, it.str("status")) }
+                r.optJSONObject("pilgrim")?.let {
+                    savePilgrim(app, it)
+                    applyServerStatus(app, it.str("status"))
+                }
                 val list = r.optJSONArray("broadcasts")
                 if (list != null && list.length() > 0) {
                     val m = list.getJSONObject(0)   // الأحدث أولاً
@@ -117,6 +120,38 @@ object Sync {
         Store.set(app, Store.GUIDE_PHONE, t.str("guide_phone"))
     }
 
+    /** بيانات المعتمر كما يراها الخادم: المرافق قد يعدّل الاسم والغرفة والفندق. */
+    fun savePilgrim(app: Context, p: JSONObject) {
+        Store.set(app, Store.NAME, p.str("full_name"))
+        Store.set(app, Store.ROOM, p.str("current_room"))
+        val hotel = p.str("current_hotel")
+        if (hotel.isNotEmpty()) Store.set(app, Store.HOTEL, hotel)
+        Store.set(app, Store.HOTEL_LAT, if (p.isNull("hotel_lat")) "" else p.optDouble("hotel_lat").toString())
+        Store.set(app, Store.HOTEL_LNG, if (p.isNull("hotel_lng")) "" else p.optDouble("hotel_lng").toString())
+        Store.set(app, Store.FAMILY, if (p.optBoolean("family", false)) "1" else "")
+    }
+
+    /** رابط العائلة: ينشئه المعتمر نفسه (action = family_link) أو يوقفه (family_stop). */
+    fun family(ctx: Context, action: String, done: (String?, String?) -> Unit) {
+        val app = ctx.applicationContext
+        val token = Store.token(app)
+        if (token == null) { done(null, null); return }
+        io.execute {
+            var tok: String? = null
+            var err: String? = null
+            try {
+                val r = Api.call(action, JSONObject(), token)
+                tok = r.str("token")
+                Store.set(app, Store.FAMILY, if (action == "family_link") "1" else "")
+            } catch (e: Api.ApiException) {
+                err = e.message
+            } catch (e: Exception) {
+                err = "لا يوجد اتصال بالإنترنت"
+            }
+            main.post { done(tok, err) }
+        }
+    }
+
     /** الانضمام للرحلة. */
     fun join(ctx: Context, body: JSONObject, done: (Boolean, String?) -> Unit) {
         val app = ctx.applicationContext
@@ -128,10 +163,9 @@ object Sync {
                 val p = r.getJSONObject("pilgrim")
                 Store.clear(app)
                 Store.set(app, Store.TOKEN, r.getString("token"))
-                Store.set(app, Store.NAME, p.str("full_name"))
-                Store.set(app, Store.ROOM, p.str("room"))
                 Store.set(app, Store.STATUS, "ok")
                 r.optJSONObject("trip")?.let { saveTrip(app, it) }
+                savePilgrim(app, p)
                 ok = true
             } catch (e: Api.ApiException) {
                 err = e.message

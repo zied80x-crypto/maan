@@ -16,6 +16,9 @@ object Store {
     const val STATUS = "status"            // ok | sos
     const val LANDMARK = "landmark"
     const val MSG = "msg"
+    const val HOTEL_LAT = "hotel_lat"
+    const val HOTEL_LNG = "hotel_lng"
+    const val FAMILY = "family"          // "1" إذا كان المعتمر يشارك حالته مع عائلته
 
     private fun p(ctx: Context): SharedPreferences =
         ctx.applicationContext.getSharedPreferences("maan", Context.MODE_PRIVATE)
