@@ -38,5 +38,9 @@ object Store {
     fun lastMsgId(ctx: Context): Long = p(ctx).getLong("last_msg_id", -1L)
     fun setLastMsgId(ctx: Context, v: Long) { p(ctx).edit().putLong("last_msg_id", v).apply() }
 
+    // وضع المرافق: التطبيق يفتح لوحة المرافق مباشرة
+    fun guideMode(ctx: Context): Boolean = p(ctx).getBoolean("guide_mode", false)
+    fun setGuideMode(ctx: Context, v: Boolean) { p(ctx).edit().putBoolean("guide_mode", v).apply() }
+
     fun clear(ctx: Context) { p(ctx).edit().clear().apply() }
 }

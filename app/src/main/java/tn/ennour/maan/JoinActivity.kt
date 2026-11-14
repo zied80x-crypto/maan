@@ -35,6 +35,11 @@ class JoinActivity : AppCompatActivity() {
 
         findViewById<MaterialButton>(R.id.btnScan).setOnClickListener { scan() }
         btnJoin.setOnClickListener { join() }
+        findViewById<MaterialButton>(R.id.btnGuide).setOnClickListener {
+            Store.setGuideMode(this, true)
+            startActivity(Intent(this, GuideActivity::class.java))
+            finish()
+        }
     }
 
     private fun scan() {

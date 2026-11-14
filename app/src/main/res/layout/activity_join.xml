@@ -154,5 +154,15 @@
             android:text="بالدخول توافق على مشاركة موقعك وبياناتك مع مرافق الرحلة فقط، طوال مدة الرحلة."
             android:textColor="@color/muted"
             android:textSize="14sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnGuide"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="28dp"
+            android:text="أنا مرافق — دخول لوحة المرافق"
+            android:textSize="18sp"
+            app:cornerRadius="16dp" />
     </LinearLayout>
 </ScrollView>

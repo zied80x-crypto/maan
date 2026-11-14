@@ -91,6 +91,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Store.guideMode(this)) {
+            startActivity(Intent(this, GuideActivity::class.java))
+            finish()
+            return
+        }
         if (Store.token(this) == null) { goJoin(); return }
 
         setContentView(R.layout.activity_main)
