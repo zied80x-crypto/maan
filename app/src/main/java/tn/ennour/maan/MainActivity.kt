@@ -1,6 +1,7 @@
 package tn.ennour.maan
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private var askedFromButton = false
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         startTracking()
+        if (Loc.allowed(this)) requestBackgroundAndBattery()
         if (askedFromButton && !Loc.allowed(this)) {
             // رُفض الإذن نهائياً: نفتح إعدادات التطبيق
             AlertDialog.Builder(this)
@@ -67,6 +69,9 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
         askedFromButton = false
+    }
+    private val bgLocPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        startTracking(); promptBattery()
     }
 
     private val ticker = object : Runnable {
@@ -102,6 +107,12 @@ class MainActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnCall).setOnClickListener { callGuide() }
         findViewById<MaterialButton>(R.id.btnWhatsapp).setOnClickListener { whatsappGuide() }
         findViewById<TextView>(R.id.tvLeave).setOnClickListener { confirmLeave() }
+        tvStatus.setOnClickListener {
+            when {
+                !Loc.allowed(this) || !Loc.enabled(this) -> checkLocationReady()
+                !isBatteryFree() -> openBatterySettings()
+            }
+        }
 
         spFloor.adapter = adapter(floors)
         val listener = object : AdapterView.OnItemSelectedListener {
@@ -150,6 +161,46 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 33) list.add(Manifest.permission.POST_NOTIFICATIONS)
         val missing = list.filter { !granted(it) }
         if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray())
+        else if (Loc.allowed(this)) requestBackgroundAndBattery()
+    }
+
+    // طلب «السماح طوال الوقت» ثم استثناء البطارية — أهم عاملين لعمل التتبع في الخلفية
+    private fun requestBackgroundAndBattery() {
+        if (Build.VERSION.SDK_INT >= 29 && !granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
+            AlertDialog.Builder(this)
+                .setTitle("السماح بالموقع طوال الوقت")
+                .setMessage("لكي يعرف المرافق مكانك والتطبيق في الخلفية، اختر في الشاشة التالية «السماح طوال الوقت».")
+                .setPositiveButton("متابعة") { _, _ -> try { bgLocPermission.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)) } catch (e: Exception) { promptBattery() } }
+                .setNegativeButton("لاحقاً") { _, _ -> promptBattery() }
+                .show()
+        } else promptBattery()
+    }
+
+    private fun isBatteryFree(): Boolean {
+        return try {
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            pm.isIgnoringBatteryOptimizations(packageName)
+        } catch (e: Exception) { true }
+    }
+
+    private var batteryPrompted = false
+    private fun promptBattery() {
+        if (batteryPrompted || isBatteryFree()) return
+        batteryPrompted = true
+        AlertDialog.Builder(this)
+            .setTitle("مهم جداً: لا توقف التطبيق")
+            .setMessage("حتى يبقى موقعك يصل للمرافق والشاشة مقفلة، اسمح لـ «معاً» بالعمل بدون قيود على البطارية.")
+            .setPositiveButton("السماح") { _, _ -> openBatterySettings() }
+            .setNegativeButton("لاحقاً", null)
+            .show()
+    }
+
+    private fun openBatterySettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+        } catch (e: Exception) {
+            try { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } catch (e2: Exception) {}
+        }
     }
 
     private fun startTracking() {
@@ -180,8 +231,9 @@ class MainActivity : AppCompatActivity() {
         val last = Store.lastSent(this)
         val mins = (System.currentTimeMillis() - last) / 60000
         val gps = when {
-            !Loc.allowed(this) -> " · ⚠️ إذن الموقع مرفوض"
-            !Loc.enabled(this) -> " · ⚠️ شغّل الموقع (GPS)"
+            !Loc.allowed(this) -> " · ⚠️ إذن الموقع مرفوض — اضغط هنا"
+            !Loc.enabled(this) -> " · ⚠️ شغّل الموقع (GPS) — اضغط هنا"
+            !isBatteryFree() -> " · ⚠️ أوقف تقييد البطارية — اضغط هنا"
             else -> ""
         }
         tvStatus.text = when {
