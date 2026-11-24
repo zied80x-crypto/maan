@@ -194,16 +194,16 @@ function drawP() {
   if (pf === 'pass') rows = rows.filter(({ p }) => passportWarn(p));
   else if (pf !== 'all') rows = rows.filter(({ c }) => c.st === pf);
   rows.sort((a, b) => (num(a.p.room) - num(b.p.room)) || (a.p.no - b.p.no));
-  const S = rows.reduce((s, { c }) => (s.sell += c.sell, s.paid += c.paid, s.rem += c.rem, s), { sell: 0, paid: 0, rem: 0 });
-  $('#ptbl').innerHTML = rows.length ? `<table><thead><tr><th>#</th><th>الاسم</th><th>الجوال</th><th>جواز السفر</th><th>الغرفة</th><th>النوع</th><th>الصفة</th><th>ثمن البيع</th><th>دفع</th><th>الباقي</th><th>الحالة</th><th></th></tr></thead><tbody>
+  const S = rows.reduce((s, { c }) => (s.buy += c.buy, s.sell += c.sell, s.paid += c.paid, s.rem += c.rem, s), { buy: 0, sell: 0, paid: 0, rem: 0 });
+  $('#ptbl').innerHTML = rows.length ? `<table><thead><tr><th>#</th><th>الاسم</th><th>الجوال</th><th>جواز السفر</th><th>الغرفة</th><th>النوع</th><th>ثمن الشراء</th><th>ثمن البيع</th><th>دفع</th><th>الباقي</th><th>الحالة</th><th></th></tr></thead><tbody>
   ${rows.map(({ p, c }) => `<tr ondblclick="pilgrimForm('${p.id}')">
     <td>${p.no}</td><td class="name"><span class="tag ${p.role !== 'pilgrim' ? 'role-' + p.role : ''}" style="${p.role === 'pilgrim' ? 'padding:0' : ''}">${esc(p.name)}</span></td>
     <td>${esc(p.phone)}</td><td>${p.passport ? esc(p.passport) : '<span class="warn">ناقص</span>'}${passportWarn(p) && p.passport ? ' ⚠️' : ''}</td>
-    <td>الغرفة ${esc(p.room)}</td><td><span class="tag rt-${p.roomType}">${p.roomType}</span></td><td>${ROLES[p.role]}</td>
+    <td>الغرفة ${esc(p.room)}</td><td><span class="tag rt-${p.roomType}">${p.roomType}</span></td><td class="num" style="color:var(--gold)">${money(c.buy)}</td>
     <td class="num">${money(c.sell)}</td><td class="num">${money(c.paid)}</td><td class="num ${c.rem > 0 ? 'warn' : ''}">${money(c.rem)}</td>
     <td><span class="tag ${c.cls}">${c.st}</span></td>
     <td><button class="btn sm" onclick="paymentForm(null,'${p.id}')">💵</button> <button class="btn sm" onclick="statement('${p.id}')">🧾</button> <button class="btn sm" onclick="pilgrimForm('${p.id}')">✏️</button></td></tr>`).join('')}
-  </tbody><tfoot><tr><td colspan="7">المجموع (${rows.length})</td><td class="num">${money(S.sell)}</td><td class="num">${money(S.paid)}</td><td class="num">${money(S.rem)}</td><td colspan="2"></td></tr></tfoot></table>`
+  </tbody><tfoot><tr><td colspan="6">المجموع (${rows.length})</td><td class="num">${money(S.buy)}</td><td class="num">${money(S.sell)}</td><td class="num">${money(S.paid)}</td><td class="num">${money(S.rem)}</td><td colspan="2"></td></tr></tfoot></table>`
     : '<div class="empty">ما فما حتى معتمر. اضغط «➕ معتمر جديد».</div>';
 }
 function pilgrimForm(id) {
