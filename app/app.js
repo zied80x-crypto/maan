@@ -380,7 +380,7 @@ function tripForm(id) {
       <tr><td><b>ثمن الشراء من الوكالة</b></td>${TYPES.map(x => `<td><input data-b="${x}" value="${v.buy?.[x] || ''}" inputmode="decimal" style="width:100%"></td>`).join('')}</tr>
     </tbody></table>
     <div class="full hint">ثمن البيع العادي يتعمّر وحدو كي تسجّل معتمر، وتنجم تبدّلو لكل واحد. ثمن الشراء يتحسب لكل معتمر حسب نوع غرفتو.</div>
-  </div></div><div class="box-f"><button class="btn pri" id="tSave">💾 حفظ</button>${t && DB.trips.length > 1 ? `<button class="btn danger" style="margin-inline-start:auto" id="tDel">🗑️ حذف الرحلة</button>` : ''}</div>`);
+  </div></div><div class="box-f"><button class="btn pri" id="tSave">💾 حفظ</button>${t ? `<button class="btn danger" style="margin-inline-start:auto" id="tDel">🗑️ حذف الرحلة</button>` : ''}</div>`);
   const f = fields($('#tf')); f.name.focus();
   $('#tSave').onclick = () => { if (!f.name.value.trim()) return toast('اكتب اسم الرحلة');
     const o = t || { id: uid('t') }; ['name', 'agency', 'leader', 'guides', 'dep', 'ret', 'flightGo', 'timeGo', 'flightBack', 'timeBack', 'hotelMakkah', 'hotelMadinah'].forEach(k => o[k] = f[k].value.trim());
@@ -407,9 +407,19 @@ function vSettings() {
       <button class="btn" onclick="exportExcel()">📗 خرّج الكل Excel</button>
       ${window.native ? '<button class="btn" onclick="native.openBackups()">📁 حل ملف النسخ الأوتوماتيكية</button>' : ''}
     </div>
+    <h3 style="margin-top:22px;color:var(--red)">🗑️ مسح المعلومات</h3>
+    <p class="hint" style="color:var(--muted)">يفسخ المعتمرين والدفعات والرحلات الكل وتبدا من الصفر. قبل المسح تتعمل نسخة احتياطية أوتوماتيك.</p>
+    <button class="btn danger" onclick="resetAll()">🗑️ امسح كل المعلومات</button>
     ${window.SEED_DECEMBER && !DB.trips.some(t => t.id === 't1') ? '<p><button class="btn" onclick="loadSeed()">📥 حمّل معتمرين رحلة ديسمبر</button></p>' : ''}
     <p class="hint" style="color:var(--muted);margin-top:14px">المعتمرون: ${DB.pilgrims.length} · الدفعات: ${DB.payments.length} · الرحلات: ${DB.trips.length}${window.native ? ' · النسخة ' + native.version : ''}</p></div></div>`;
   $('#sSave').onclick = () => { const f = fields($('#sf')); DB.settings = { owner: f.owner.value.trim(), phone: f.phone.value.trim(), shop: f.shop.value.trim() }; save(); toast('تحفظ ✔'); };
+}
+function resetAll() {
+  confirmBox(`تمسح كل المعلومات (${DB.pilgrims.length} معتمر، ${DB.payments.length} دفعة، ${DB.trips.length} رحلة)؟<br><br>اكتب <b>نمسح</b> باش تأكّد:<br><input id="rsTxt" style="margin-top:8px;border:1px solid #ddd;border-radius:8px;padding:8px;width:100%">`, () => {
+    if (document.getElementById('rsTxt').value.trim() !== 'نمسح') return toast('اكتب «نمسح» باش تأكّد');
+    if (window.native && native.backupNow) native.backupNow();
+    const st = DB.settings; DB = EMPTY(); DB.settings = st; curTrip = ''; localStorage.removeItem('curTrip'); save(); closeModal(); go('dash'); toast('المعلومات تمسحت. ابدا من جديد ✔');
+  });
 }
 function download(name, data, type) {
   const b = new Blob([data], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
@@ -469,7 +479,7 @@ function printRooms() {
 function modal(html) { $('#modalBox').innerHTML = html; $('#modal').classList.remove('hidden'); }
 function closeModal() { $('#modal').classList.add('hidden'); $('#modalBox').innerHTML = ''; }
 function confirmBox(msg, yes) {
-  modal(`<div class="box-h"><h2>⚠️ تأكيد</h2></div><div class="box-b">${msg}</div><div class="box-f"><button class="btn danger" id="cY">إيه، احذف</button><button class="btn" onclick="closeModal()">لا</button></div>`);
+  modal(`<div class="box-h"><h2>⚠️ تأكيد</h2></div><div class="box-b">${msg}</div><div class="box-f"><button class="btn danger" id="cY">إيه، أكّد</button><button class="btn" onclick="closeModal()">لا</button></div>`);
   $('#cY').onclick = yes;
 }
 $('#modal').addEventListener('mousedown', e => { if (e.target.id === 'modal') closeModal(); });

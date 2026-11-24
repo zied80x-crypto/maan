@@ -24,6 +24,10 @@ ipcMain.on('save', (e, str) => {
     dailyBackup(); e.returnValue = true;
   } catch (err) { e.returnValue = false; dialog.showErrorBox('خطأ في الحفظ', String(err)); }
 });
+ipcMain.on('backupNow', e => {
+  try { if (fs.existsSync(DATA())) { fs.mkdirSync(BK(), { recursive: true }); fs.copyFileSync(DATA(), path.join(BK(), 'before-reset-' + Date.now() + '.json')); } } catch (err) {}
+  e.returnValue = true;
+});
 ipcMain.on('openBackups', () => { fs.mkdirSync(BK(), { recursive: true }); shell.openPath(BK()); });
 ipcMain.on('version', e => { e.returnValue = app.getVersion(); });
 
