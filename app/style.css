@@ -184,3 +184,20 @@ tfoot td{font-weight:800;background:#f8f5ee}
   .plist .rnum{text-align:center;font-size:15px;font-weight:800;vertical-align:middle}
   .plist tbody tr{page-break-inside:avoid}
 }
+
+.ptab td.ed{cursor:text;position:relative}
+.ptab td.ed:hover{background:#eef6f2!important;box-shadow:inset 0 0 0 1px #b6dcc9}
+.ptab td.gold{color:var(--gold)}
+.ptab .ph{color:#c9c2b3}
+.ptab td.paycell{cursor:pointer}
+.ptab td.paycell:hover{background:#eef6f2!important}
+.cell-in{width:100%;min-width:90px;border:2px solid var(--green2);border-radius:8px;padding:5px 8px;background:#fff;outline:none;font-weight:600}
+.fbox{display:none}
+@media print{
+  .fbox{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:0 0 12px}
+  .fbox>div{border:1.5px solid #0f5c4d;border-radius:8px;padding:8px 10px}
+  .fbox h4{margin:0 0 5px;color:#0f5c4d;font-size:14px}
+  .fbox .fl{font-size:13px;line-height:1.7}
+  .fbox b{font-size:14px}
+  .fbox small{color:#555}
+}
