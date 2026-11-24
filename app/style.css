@@ -71,9 +71,10 @@ main{overflow:auto;display:flex;flex-direction:column}
 .chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;cursor:pointer;font-size:12.5px;font-weight:600}
 .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 
-.tbl-wrap{background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:auto;box-shadow:var(--sh)}
+.tbl-wrap{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
 table{width:100%;border-collapse:collapse}
-th{background:#f8f5ee;color:#4a524e;font-weight:700;font-size:12.5px;text-align:right;padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;white-space:nowrap}
+th{background:#ece6d9;color:#1c2420;font-weight:800;font-size:14.5px;text-align:right;padding:12px 12px;border-bottom:2px solid #d6cdb9;position:sticky;top:var(--topH,78px);z-index:4;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,.05)}
+.card th{position:static;font-size:13px}
 td{padding:9px 12px;border-bottom:1px solid #f0ebe0;white-space:nowrap}
 tr:hover td{background:#fbf9f4}
 td.num{font-variant-numeric:tabular-nums;font-weight:600}
@@ -201,3 +202,16 @@ tfoot td{font-weight:800;background:#f8f5ee}
   .fbox b{font-size:14px}
   .fbox small{color:#555}
 }
+
+.gtag{background:var(--blue-soft);color:var(--blue);margin:1px 0}
+.gsel{border:1px solid var(--line);border-radius:10px;padding:7px 10px;background:#fff;font-weight:600}
+.gpop{position:absolute;z-index:20;top:100%;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:190px;cursor:default}
+.gpop label{display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;white-space:nowrap}
+.gpop .btn{margin-top:4px}
+.gchk{display:flex;flex-wrap:wrap;gap:8px}
+.gchk label{flex-direction:row!important;align-items:center;gap:6px!important;border:1px solid var(--line);border-radius:10px;padding:6px 12px;background:#fdfcf9;cursor:pointer}
+.ptab td{padding:8px 8px}
+.ptab th{padding:12px 8px}
+.ptab td.ed[data-f=guides]{white-space:normal;min-width:90px}
+.ptab td.acts{white-space:nowrap}
+.ptab td.acts .btn.sm{padding:4px 7px}

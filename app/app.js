@@ -103,6 +103,8 @@ function fillTripSel() {
   s.innerHTML = DB.trips.length ? DB.trips.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('') : '<option>— ما فماش رحلة —</option>';
   if (trip()) { curTrip = trip().id; s.value = curTrip; }
 }
+function setTopH() { const h = document.querySelector('.top'); if (h) document.documentElement.style.setProperty('--topH', h.offsetHeight + 'px'); }
+window.addEventListener('resize', setTopH);
 function render() {
   DB.trips.forEach(migrateTrip);
   fillTripSel();
@@ -111,7 +113,7 @@ function render() {
   if (!DB.trips.length && view !== 'settings') return renderWelcome();
   ({ dash: vDash, pilgrims: vPilgrims, payments: vPayments, agency: vAgency, rooms: vRooms, trips: vTrips, settings: vSettings })[view]();
 }
-function acts(html) { $('#topAct').innerHTML = html; }
+function acts(html) { $('#topAct').innerHTML = html; setTimeout(setTopH, 0); }
 
 /* ===================== الترحيب ===================== */
 function renderWelcome() {
@@ -195,22 +197,31 @@ function vPilgrims() {
   $('#view').innerHTML = `<div class="toolbar">
     <div class="search"><input id="pq" placeholder="ابحث بالاسم، الجوال، الجواز، رقم الغرفة…" value="${esc(pq)}"></div>
     <div class="chips">${Object.entries(F).map(([k, v]) => `<span class="chip ${pf === k ? 'on' : ''}" data-f="${k}">${v}</span>`).join('')}</div>
+    <select id="gfSel" class="gsel"><option value="">👥 كل المرافقين</option>${guideList().map(g => `<option ${gf === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}<option value="__none" ${gf === '__none' ? 'selected' : ''}>بلا مرافق</option></select>
   </div><div class="tbl-wrap" id="ptbl"></div>`;
+  $('#gfSel').onchange = e => { gf = e.target.value; drawP(); };
   $('#pq').addEventListener('input', e => { pq = e.target.value; drawP(); });
   document.querySelectorAll('.chip').forEach(c => c.onclick = () => { pf = c.dataset.f; vPilgrims(); });
   drawP(); $('#pq').focus();
 }
-const EDIT_COLS = ['name', 'phone', 'passport', 'room', 'roomType', 'roomMakkah', 'roomMadinah', 'buy', 'sell'];
+const EDIT_COLS = ['name', 'phone', 'passport', 'room', 'roomType', 'buy', 'sell'];
+function guideList(t = trip()) {
+  const l = [t?.leader, ...String(t?.guides || '').split(/[،,]/)].map(x => String(x || '').trim()).filter(Boolean);
+  tripPilgrims(t).filter(p => p.role !== 'pilgrim').forEach(p => l.push(p.name.trim()));
+  return [...new Set(l)];
+}
+let gf = '';
 function drawP() {
   const q = pq.trim().toLowerCase();
   let rows = tripPilgrims().map(p => ({ p, c: calc(p) }));
   if (q) rows = rows.filter(({ p }) => [p.name, p.phone, p.passport, 'الغرفة ' + p.room, p.roomMakkah, p.roomMadinah, p.no].join(' ').toLowerCase().includes(q));
   if (pf === 'pass') rows = rows.filter(({ p }) => passportWarn(p));
   else if (pf !== 'all') rows = rows.filter(({ c }) => c.st === pf);
+  if (gf) rows = rows.filter(({ p }) => (p.guides || []).includes(gf) || (gf === '__none' && !(p.guides || []).length));
   rows.sort((a, b) => (num(a.p.room) - num(b.p.room)) || (a.p.no - b.p.no));
   const S = rows.reduce((s, { c }) => (s.buy += c.buy, s.sell += c.sell, s.paid += c.paid, s.rem += c.rem, s), { buy: 0, sell: 0, paid: 0, rem: 0 });
   const e = (f, html, cls = '') => `<td class="ed ${cls}" data-f="${f}" title="اضغط باش تبدّل">${html}</td>`;
-  $('#ptbl').innerHTML = rows.length ? `<table class="ptab"><thead><tr><th>#</th><th>الاسم</th><th>الجوال</th><th>جواز السفر</th><th>الغرفة</th><th>النوع</th><th>غرفة مكة</th><th>غرفة المدينة</th><th>ثمن الشراء</th><th>ثمن البيع</th><th>دفع</th><th>الباقي</th><th>الحالة</th><th></th></tr></thead><tbody>
+  $('#ptbl').innerHTML = rows.length ? `<table class="ptab"><thead><tr><th>#</th><th>الاسم</th><th>الجوال</th><th>جواز السفر</th><th>الغرفة</th><th>النوع</th><th>المرافق</th><th>ثمن الشراء</th><th>ثمن البيع</th><th>دفع</th><th>الباقي</th><th>الحالة</th><th></th></tr></thead><tbody>
   ${rows.map(({ p, c }) => `<tr data-id="${p.id}">
     <td>${p.no}</td>
     ${e('name', `<span class="tag ${p.role !== 'pilgrim' ? 'role-' + p.role : ''}" style="${p.role === 'pilgrim' ? 'padding:0' : ''}">${esc(p.name)}</span>`, 'name')}
@@ -218,20 +229,20 @@ function drawP() {
     ${e('passport', (p.passport ? esc(p.passport) : '<span class="warn">ناقص</span>') + (passportWarn(p) && p.passport ? ' ⚠️' : ''))}
     ${e('room', 'الغرفة ' + esc(p.room))}
     ${e('roomType', `<span class="tag rt-${p.roomType}">${p.roomType}</span>`)}
-    ${e('roomMakkah', esc(p.roomMakkah) || '<span class="ph">—</span>')}
-    ${e('roomMadinah', esc(p.roomMadinah) || '<span class="ph">—</span>')}
+    ${e('guides', (p.guides || []).length ? p.guides.map(g => `<span class="tag gtag">${esc(g)}</span>`).join(' ') : '<span class="ph">اختار</span>')}
     ${e('buy', money(c.buy), 'num gold')}
     ${e('sell', money(c.sell), 'num')}
     <td class="num paycell" onclick="paymentForm(null,'${p.id}')" title="اضغط باش تزيد دفعة">${money(c.paid)}</td><td class="num ${c.rem > 0 ? 'warn' : ''}">${money(c.rem)}</td>
     <td><span class="tag ${c.cls}">${c.st}</span></td>
     <td class="acts"><button class="btn sm" onclick="paymentForm(null,'${p.id}')" title="دفعة">💵</button> <button class="btn sm" onclick="statement('${p.id}')" title="كشف حساب">🧾</button> <button class="btn sm" onclick="pilgrimForm('${p.id}')" title="كل المعلومات">✏️</button></td></tr>`).join('')}
-  </tbody><tfoot><tr><td colspan="8">المجموع (${rows.length})</td><td class="num">${money(S.buy)}</td><td class="num">${money(S.sell)}</td><td class="num">${money(S.paid)}</td><td class="num">${money(S.rem)}</td><td colspan="2"></td></tr></tfoot></table>
+  </tbody><tfoot><tr><td colspan="7">المجموع (${rows.length})</td><td class="num">${money(S.buy)}</td><td class="num">${money(S.sell)}</td><td class="num">${money(S.paid)}</td><td class="num">${money(S.rem)}</td><td colspan="2"></td></tr></tfoot></table>
   <div class="hint" style="padding:10px 14px;color:var(--muted);font-size:12.5px">💡 اضغط على أي خانة باش تبدّلها مباشرة. Enter = حفظ · Tab = الخانة اللي بعدها · Esc = إلغاء</div>`
     : '<div class="empty">ما فما حتى معتمر. اضغط «➕ معتمر جديد».</div>';
 }
 function startEdit(td) {
   if (!td || td.querySelector('input,select')) return;
   const id = td.parentElement.dataset.id, f = td.dataset.f, p = DB.pilgrims.find(x => x.id === id); if (!p) return;
+  if (f === 'guides') return editGuides(td, p);
   let el;
   if (f === 'roomType') { el = document.createElement('select'); el.innerHTML = TYPES.map(t => `<option ${t === p.roomType ? 'selected' : ''}>${t}</option>`).join(''); }
   else { el = document.createElement('input'); el.value = f === 'buy' ? (p.buy ?? '') : (p[f] ?? ''); if (['room', 'buy', 'sell'].includes(f)) el.inputMode = 'decimal'; if (f === 'buy') el.placeholder = 'حسب الرحلة'; }
@@ -269,6 +280,23 @@ function startEdit(td) {
   if (el.tagName === 'SELECT') el.addEventListener('change', () => commit(0));
 }
 document.addEventListener('click', ev => { const td = ev.target.closest('#ptbl td.ed'); if (td) startEdit(td); });
+function editGuides(td, p) {
+  const gl = guideList(); if (!gl.length) return toast('زيد أسماء المرافقين في «الرحلات» أولاً');
+  const pop = document.createElement('div'); pop.className = 'gpop';
+  pop.innerHTML = gl.map(g => `<label><input type="checkbox" value="${esc(g)}" ${(p.guides || []).includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('') + '<button class="btn sm pri">✔ حفظ</button>';
+  td.appendChild(pop);
+  const close = saveIt => {
+    document.removeEventListener('mousedown', outside, true);
+    if (saveIt) { p.guides = [...pop.querySelectorAll('input:checked')].map(i => i.value); save(); toast('تسجّل ✔'); }
+    const sc = $('main').scrollTop; drawP(); $('main').scrollTop = sc;
+  };
+  const outside = e => { if (!pop.contains(e.target)) close(true); };
+  setTimeout(() => document.addEventListener('mousedown', outside, true), 0);
+  pop.querySelector('button').onclick = e => { e.stopPropagation(); close(true); };
+  pop.addEventListener('click', e => e.stopPropagation());
+  pop.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); close(false); } if (e.key === 'Enter') close(true); });
+  pop.querySelector('input').focus();
+}
 function pilgrimForm(id) {
   const t = trip(); const p = id ? DB.pilgrims.find(x => x.id === id) : null;
   const used = tripPilgrims(t).map(x => num(x.room));
@@ -296,6 +324,8 @@ function pilgrimForm(id) {
     <label>ثمن الشراء من الوكالة <span class="hint">(فارغ = حسب الرحلة: <b id="buyDef"></b>)</span><input name="buy" value="${v.buy ?? ''}" inputmode="decimal"></label>
     ${p ? '' : `<label>قداش دفع توّا (دينار)<input name="first" inputmode="decimal" placeholder="0"></label>
     <label>طريقة الدفع<select name="method">${METHODS.map(m => `<option>${m}</option>`).join('')}</select></label>`}
+    <div class="full"><div style="font-weight:600;font-size:13px;color:#3d4541;margin-bottom:5px">المرافق <span class="hint">(تنجم تختار أكثر من واحد)</span></div>
+      <div class="gchk" id="gChk">${guideList(t).map(g => `<label><input type="checkbox" value="${esc(g)}" ${(v.guides || []).includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('') || '<span class="hint">زيد أسماء المرافقين في «الرحلات»</span>'}</div></div>
     <label class="full">ملاحظات<textarea name="notes" rows="2">${esc(v.notes)}</textarea></label>
     ${p ? `<div class="full sumline" id="pSum"></div>` : ''}
   </div></div>
@@ -315,7 +345,7 @@ function pilgrimForm(id) {
   const doSave = again => {
     const name = f.name.value.trim(); if (!name) { f.name.focus(); return toast('اكتب الاسم'); }
     const o = p || { id: uid('p'), no: DB.nextNo++, tripId: t.id, created: today() };
-    Object.assign(o, { name, phone: f.phone.value.trim(), role: f.role.value, passport: f.passport.value.trim().toUpperCase(), passportExp: f.passportExp.value, room: num(f.room.value) || 1, roomMakkah: f.roomMakkah.value.trim(), roomMadinah: f.roomMadinah.value.trim(), roomType: rt, sell: num(f.sell.value), buy: f.buy.value.trim() === '' ? null : num(f.buy.value), notes: f.notes.value.trim() });
+    Object.assign(o, { name, phone: f.phone.value.trim(), role: f.role.value, passport: f.passport.value.trim().toUpperCase(), passportExp: f.passportExp.value, room: num(f.room.value) || 1, roomMakkah: f.roomMakkah.value.trim(), roomMadinah: f.roomMadinah.value.trim(), roomType: rt, guides: [...document.querySelectorAll('#gChk input:checked')].map(i => i.value), sell: num(f.sell.value), buy: f.buy.value.trim() === '' ? null : num(f.buy.value), notes: f.notes.value.trim() });
     if (!p) { DB.pilgrims.push(o); const first = num(f.first.value); if (first) DB.payments.push({ id: uid('y'), rcpt: DB.nextRcpt++, pilgrimId: o.id, date: today(), amount: first, method: f.method.value, note: 'دفعة عند التسجيل' }); }
     save(); toast(p ? 'تبدّل ✔' : `تسجّل ${name} ✔`); closeModal(); render(); if (again) pilgrimForm();
   };
@@ -520,7 +550,7 @@ function importJSON() {
 }
 function exportExcel() {
   const t = trip(); const wb = XLSX.utils.book_new();
-  const P = tripPilgrims(t).sort((a, b) => num(a.room) - num(b.room)).map(p => { const c = calc(p); return { '#': p.no, 'الاسم': p.name, 'الجوال': p.phone, 'جواز السفر': p.passport, 'انتهاء الجواز': p.passportExp || '', 'الغرفة': p.room, 'غرفة مكة': p.roomMakkah || '', 'غرفة المدينة': p.roomMadinah || '', 'نوع الغرفة': p.roomType, 'الصفة': ROLES[p.role], 'ثمن البيع': c.sell, 'ثمن الشراء': c.buy, 'المدفوع': c.paid, 'الباقي': c.rem, 'الحالة': c.st, 'ملاحظات': p.notes }; });
+  const P = tripPilgrims(t).sort((a, b) => num(a.room) - num(b.room)).map(p => { const c = calc(p); return { '#': p.no, 'الاسم': p.name, 'الجوال': p.phone, 'جواز السفر': p.passport, 'انتهاء الجواز': p.passportExp || '', 'الغرفة': p.room, 'غرفة مكة': p.roomMakkah || '', 'غرفة المدينة': p.roomMadinah || '', 'نوع الغرفة': p.roomType, 'المرافق': (p.guides || []).join('، '), 'الصفة': ROLES[p.role], 'ثمن البيع': c.sell, 'ثمن الشراء': c.buy, 'المدفوع': c.paid, 'الباقي': c.rem, 'الحالة': c.st, 'ملاحظات': p.notes }; });
   const ids = new Set(tripPilgrims(t).map(p => p.id));
   const Y = DB.payments.filter(y => ids.has(y.pilgrimId)).map(y => ({ 'وصل': y.rcpt, 'التاريخ': dfmt(y.date), 'المعتمر': DB.pilgrims.find(p => p.id === y.pilgrimId).name, 'المبلغ': num(y.amount), 'الطريقة': y.method, 'ملاحظة': y.note }));
   const A = DB.agency.filter(a => a.tripId === t.id).map(a => ({ 'التاريخ': dfmt(a.date), 'المبلغ': num(a.amount), 'الطريقة': a.method, 'رقم الوصل': a.ref, 'ملاحظة': a.note }));
@@ -569,11 +599,13 @@ function statement(id) {
   <h3>ثمن الرحلة: ${money(c.sell)} · المدفوع: ${money(c.paid)} · الباقي: ${money(c.rem)}</h3>`);
 }
 function printList() {
-  const ps = tripPilgrims(); const rooms = {}; ps.forEach(p => (rooms[p.room] = rooms[p.room] || []).push(p));
+  let ps = tripPilgrims(); const only = view === 'pilgrims' && gf && gf !== '__none' ? gf : '';
+  if (only) ps = ps.filter(p => (p.guides || []).includes(only));
+  const rooms = {}; ps.forEach(p => (rooms[p.room] = rooms[p.room] || []).push(p));
   const keys = Object.keys(rooms).sort((a, b) => num(a) - num(b)); let n = 0;
-  doPrint(head('قائمة المعتمرين حسب الغرف') + flightBox(trip()) + `<table class="plist"><thead><tr><th style="width:26px">#</th><th>الاسم</th><th>جواز السفر</th><th>رقم الغرفة في المدينة</th><th>رقم الغرفة في مكة</th></tr></thead><tbody>
-  ${keys.map(k => { const l = rooms[k]; return `<tr class="rgrp"><td colspan="5">الغرفة ${esc(k)} · ${l[0].roomType} (${l.length})</td></tr>` +
-    l.map((p, i) => `<tr><td>${++n}</td><td>${esc(p.name)}</td><td>${esc(p.passport || '')}</td>${i === 0 ? `<td rowspan="${l.length}" class="rnum">${esc(p.roomMadinah || '')}</td><td rowspan="${l.length}" class="rnum">${esc(p.roomMakkah || '')}</td>` : ''}</tr>`).join(''); }).join('')}
+  doPrint(head('قائمة المعتمرين حسب الغرف' + (only ? ' — مرافق: ' + only : '')) + flightBox(trip()) + `<table class="plist"><thead><tr><th style="width:26px">#</th><th>الاسم</th><th>جواز السفر</th><th>المرافق</th><th>رقم الغرفة في المدينة</th><th>رقم الغرفة في مكة</th></tr></thead><tbody>
+  ${keys.map(k => { const l = rooms[k]; return `<tr class="rgrp"><td colspan="6">الغرفة ${esc(k)} · ${l[0].roomType} (${l.length})</td></tr>` +
+    l.map((p, i) => `<tr><td>${++n}</td><td>${esc(p.name)}</td><td>${esc(p.passport || '')}</td><td>${esc((p.guides || []).join('، '))}</td>${i === 0 ? `<td rowspan="${l.length}" class="rnum">${esc(p.roomMadinah || '')}</td><td rowspan="${l.length}" class="rnum">${esc(p.roomMakkah || '')}</td>` : ''}</tr>`).join(''); }).join('')}
   </tbody></table><p style="margin-top:10px">المجموع: ${ps.length} معتمر · ${keys.length} غرفة</p>`);
 }
 function printRooms() {
@@ -596,3 +628,4 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey && e.target.tagName === 'INPUT' && !$('#modal').classList.contains('hidden')) { const b = $('#modalBox .box-f .btn.pri'); if (b) { e.preventDefault(); b.click(); } }
 });
 render();
+setTopH();
