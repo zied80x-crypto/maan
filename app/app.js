@@ -34,7 +34,8 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const num = v => { const n = parseFloat(String(v ?? '').replace(/[^\d.\-]/g, '')); return isNaN(n) ? 0 : n; };
-const money = v => (Math.round(num(v)) || 0).toLocaleString('fr-TN').replace(/ | /g, ' ') + ' د';
+const fmtN = v => (Math.round(num(v)) || 0).toLocaleString('en-US');
+const money = v => '\u2066' + fmtN(v) + '\u2069 د';
 const today = () => new Date().toISOString().slice(0, 10);
 const dfmt = d => d ? d.split('-').reverse().join('/') : '—';
 const TYPES = ['ثنائي', 'ثلاثي', 'رباعي', 'خماسي'];
@@ -118,43 +119,58 @@ function loadSeed() {
 }
 
 /* ===================== لوحة القيادة ===================== */
+function gauge(pct, color, label, big, sub) {
+  const p = Math.max(0, Math.min(100, Math.round(pct || 0))), R = 52, C = 2 * Math.PI * R;
+  return `<div class="card gauge"><svg viewBox="0 0 130 130"><circle cx="65" cy="65" r="${R}" class="g-bg"/>
+    <circle cx="65" cy="65" r="${R}" class="g-fg" stroke="${color}" stroke-dasharray="${C * p / 100} ${C}" transform="rotate(-90 65 65)"/>
+    <text x="65" y="66" class="g-pct" fill="${color}">${p}%</text><text x="65" y="88" class="g-lbl">من 100</text></svg>
+    <h4>${label}</h4><b style="color:${color}">${big}</b><small>${sub}</small></div>`;
+}
+function tripAlerts(t, T, ps) {
+  const A = []; const add = (lvl, ic, txt, act) => A.push({ lvl, ic, txt, act });
+  const days = t.dep ? Math.ceil((new Date(t.dep) - new Date(today())) / 864e5) : null;
+  if (days !== null) {
+    if (days > 0) add(days <= 7 ? 'r' : 'i', '✈️', `باقي <b>${days}</b> يوم على السفر (${dfmt(t.dep)} · ${esc(t.flightGo || '')} ${esc(t.timeGo || '')})`);
+    else if (t.ret && new Date(t.ret) >= new Date(today())) add('i', '🕋', `الرحلة جارية: العودة ${dfmt(t.ret)} · ${esc(t.flightBack || '')} ${esc(t.timeBack || '')}`);
+    else add('i', '✔', 'الرحلة فاتت');
+  } else add('a', '📅', 'تاريخ السفر ماهوش معمّر', "tripForm(trip().id)");
+  const none = ps.filter(p => { const c = calc(p); return c.sell > 0 && c.paid === 0; });
+  const owing = ps.filter(p => calc(p).rem > 0);
+  if (owing.length) add(days !== null && days <= 10 ? 'r' : 'a', '💰', `<b>${owing.length}</b> معتمر ما كمّلوش الخلاص، باقي عندهم <b>${money(T.rem)}</b>${none.length ? ` (منهم ${none.length} ما دفعوا حتى شي)` : ''}`, "go('pilgrims')");
+  else if (ps.length) add('g', '✔', 'المعتمرين الكل خلّصو');
+  if (!T.buy) add('a', '🏢', 'أسعار الشراء من الوكالة ماهيش معمّرة: الربح موش صحيح', "tripForm(trip().id)");
+  else if (T.agRem > 0) add(days !== null && days <= 10 ? 'r' : 'a', '🏢', `باقي للوكالة <b>${money(T.agRem)}</b>`, "go('agency')");
+  else add('g', '✔', 'الوكالة خالصة');
+  const noPass = ps.filter(p => !p.passport), exp = ps.filter(p => p.passport && passportWarn(p));
+  if (noPass.length) add('a', '🛂', `<b>${noPass.length}</b> معتمر جواز السفر متاعهم ناقص`, "pf='pass';go('pilgrims')");
+  if (exp.length) add('r', '⛔', `<b>${exp.length}</b> جواز يوفى قبل 6 أشهر من الرجوع: ${exp.map(p => esc(p.name)).join('، ')}`);
+  const rooms = {}; ps.forEach(p => (rooms[p.room] = rooms[p.room] || []).push(p));
+  const E = Object.entries(rooms);
+  const notFull = E.filter(([k, l]) => l.length < CAP[l[0].roomType]), over = E.filter(([k, l]) => l.length > CAP[l[0].roomType]);
+  if (over.length) add('r', '🛏️', `غرف فيها أكثر من السعة: ${over.map(x => 'الغرفة ' + x[0]).join('، ')}`, "go('rooms')");
+  if (notFull.length) add('i', '🛏️', `غرف فيها بلايص فارغة: ${notFull.map(([k, l]) => `الغرفة ${k} (${CAP[l[0].roomType] - l.length})`).join('، ')}`, "go('rooms')");
+  if (days !== null && days <= 3) { const miss = ps.filter(p => !p.roomMakkah || !p.roomMadinah).length; if (miss) add('a', '🏨', `<b>${miss}</b> معتمر ما عندهمش رقم غرفة في الفندق (مكة/المدينة)`, "go('rooms')"); }
+  if (!t.agency) add('i', 'ℹ️', 'اسم الوكالة ماهوش معمّر', "tripForm(trip().id)");
+  return A;
+}
 function vDash() {
   const t = trip(), T = tripTotals(t), ps = tripPilgrims(t);
-  acts(`<button class="btn pri" onclick="pilgrimForm()">➕ معتمر جديد</button><button class="btn" onclick="paymentForm()">💵 دفعة جديدة</button>`);
-  const days = t.dep ? Math.ceil((new Date(t.dep) - new Date(today())) / 864e5) : null;
-  const pct = T.sell ? Math.round(T.paid / T.sell * 100) : 0;
-  const owing = ps.map(p => ({ p, c: calc(p) })).filter(x => x.c.rem > 0).sort((a, b) => b.c.rem - a.c.rem);
-  const noPass = ps.filter(p => passportWarn(p));
-  const byType = TYPES.map(ty => [ty, ps.filter(p => p.roomType === ty).length]).filter(x => x[1]);
+  acts(`<button class="btn pri" onclick="pilgrimForm()">➕ معتمر جديد</button><button class="btn" onclick="paymentForm()">💵 دفعة جديدة</button><button class="btn" onclick="printList()">🖨️ قائمة الأسماء</button>`);
+  const owing = ps.filter(p => calc(p).rem > 0).length;
+  const al = tripAlerts(t, T, ps);
   $('#view').innerHTML = `
-  <div class="card" style="margin-bottom:16px"><div class="trip-head">
-    ${days !== null ? `<div class="countdown"><b>${days > 0 ? days : (days === 0 ? 'اليوم' : '✓')}</b>${days > 0 ? 'يوم على السفر' : (days === 0 ? 'يوم السفر' : 'الرحلة فاتت')}</div>` : ''}
-    <div class="f"><small>الرحلة</small><b>${esc(t.name)}</b></div>
-    <div class="f"><small>الذهاب</small><b>${dfmt(t.dep)} · ${esc(t.flightGo || '')}</b><small>${esc(t.timeGo || '')}</small></div>
-    <div class="f"><small>العودة</small><b>${dfmt(t.ret)} · ${esc(t.flightBack || '')}</b><small>${esc(t.timeBack || '')}</small></div>
-    <div class="f"><small>رئيس المجموعة</small><b>${esc(t.leader || '—')}</b></div>
-    <div class="f"><small>المرافقون</small><b>${esc(t.guides || '—')}</b></div>
-    <div class="f"><small>الوكالة</small><b>${esc(t.agency || '—')}</b></div>
-  </div></div>
-  <div class="cards">
-    <div class="card kpi"><small>المعتمرون</small><b>${T.n}</b><span>${byType.map(x => x[1] + ' ' + x[0]).join(' · ')}</span></div>
-    <div class="card kpi g"><small>المقبوض من المعتمرين</small><b>${money(T.paid)}</b><div class="bar"><div style="width:${Math.min(pct, 100)}%"></div></div><span>${pct}% من ${money(T.sell)}</span></div>
-    <div class="card kpi r"><small>الباقي عند المعتمرين</small><b>${money(T.rem)}</b><span>${T.owing} معتمر باقي عليهم</span></div>
-    <div class="card kpi a"><small>الباقي للوكالة</small><b>${money(T.agRem)}</b><span>دفعت ${money(T.agPaid)} من ${money(T.buy)}</span></div>
-    <div class="card kpi b"><small>الربح المتوقع</small><b>${money(T.profit)}</b><span>${T.buy ? '' : '⚠️ عمّر أسعار الشراء في «الرحلات»'}</span></div>
-    <div class="card kpi"><small>الفلوس اللي عندك توّا</small><b>${money(T.cash)}</b><span>المقبوض − المدفوع للوكالة</span></div>
+  <div class="card trip-strip"><b>${esc(t.name)}</b>
+    <span>✈️ ${dfmt(t.dep)} ${esc(t.flightGo || '')}</span><span>🔙 ${dfmt(t.ret)} ${esc(t.flightBack || '')}</span>
+    <span>👤 ${esc(t.leader || '—')}</span><span>🤝 ${esc(t.guides || '—')}</span><span>🏢 ${esc(t.agency || '—')}</span><span>👥 ${T.n} معتمر</span>
+    <button class="btn sm" onclick="tripForm(trip().id)">✏️</button></div>
+  <div class="gauges">
+    ${gauge(T.sell ? T.paid / T.sell * 100 : 0, '#13795f', 'قبضت من المعتمرين', money(T.paid), `من ${money(T.sell)}<br>${owing} معتمر ما كمّلوش الخلاص`)}
+    ${gauge(T.buy ? T.agPaid / T.buy * 100 : 0, '#b8892d', 'عطيت للوكالة', money(T.agPaid), T.buy ? `من ${money(T.buy)}<br>باقي للوكالة ${money(T.agRem)}` : 'عمّر أسعار الشراء<br>في «الرحلات»')}
+    ${gauge(T.sell ? T.rem / T.sell * 100 : 0, '#b42318', 'مزال عند المعتمرين', money(T.rem), `${owing} معتمر<br>${T.sell ? Math.round(T.rem / T.sell * 100) : 0}% من مجموع البيع`)}
+    ${gauge(T.sell ? T.profit / T.sell * 100 : 0, '#1d5fa8', 'الربح المتوقع', money(T.profit), T.buy ? `نسبة الربح من البيع<br>الفلوس عندك توّا ${money(T.cash)}` : 'عمّر أسعار الشراء<br>باش يطلع صحيح')}
   </div>
-  <div class="grid2">
-    <div class="card"><h3>💰 شكون باقي عليه (${owing.length})</h3>
-      ${owing.length ? `<table><thead><tr><th>المعتمر</th><th>الجوال</th><th>دفع</th><th>الباقي</th><th></th></tr></thead><tbody>
-      ${owing.map(({ p, c }) => `<tr><td class="name">${esc(p.name)}</td><td>${esc(p.phone)}</td><td class="num">${money(c.paid)}</td><td class="num warn">${money(c.rem)}</td>
-      <td><button class="btn sm" onclick="paymentForm(null,'${p.id}')">💵 دفعة</button> ${p.phone ? `<button class="btn sm" onclick="waRemind('${p.id}')">واتساب</button>` : ''}</td></tr>`).join('')}
-      </tbody></table>` : '<div class="empty">الكل خالص 🎉</div>'}
-    </div>
-    <div class="card"><h3>🛂 جوازات السفر (${noPass.length})</h3>
-      ${noPass.length ? `<table><tbody>${noPass.map(p => `<tr><td class="name">${esc(p.name)}</td><td class="warn">${passportWarn(p)}</td><td><button class="btn sm" onclick="pilgrimForm('${p.id}')">✏️</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">الجوازات الكل مسجّلة ✔</div>'}
-    </div>
-  </div>`;
+  <div class="card alerts"><h3>🔔 إخطارات الرحلة</h3>
+    ${al.map(x => `<div class="al al-${x.lvl}" ${x.act ? `onclick="${x.act}" style="cursor:pointer"` : ''}><span>${x.ic}</span><div>${x.txt}</div>${x.act ? '<i>←</i>' : ''}</div>`).join('')}</div>`;
 }
 
 /* ===================== المعتمرون ===================== */
@@ -207,8 +223,10 @@ function pilgrimForm(id) {
     <label>رقم جواز السفر<input name="passport" value="${esc(v.passport)}" style="text-transform:uppercase" placeholder="مثال: Z1234567"></label>
     <label>تاريخ انتهاء الجواز <span class="hint">(اختياري)</span><input type="date" name="passportExp" value="${esc(v.passportExp || '')}"></label>
     <div class="sec-t">الغرفة</div>
-    <label>رقم الغرفة <span class="hint">(نفس الرقم = نفس الغرفة)</span><input type="number" min="1" name="room" value="${esc(v.room)}"></label>
-    <label>نوع الغرفة<div class="seg" id="rtSeg">${TYPES.map(ty => `<button type="button" data-t="${ty}" class="${v.roomType === ty ? 'on' : ''}">${ty}</button>`).join('')}</div></label>
+    <label>رقم الغرفة في المجموعة <span class="hint">(نفس الرقم = نفس الغرفة)</span><input type="number" min="1" name="room" value="${esc(v.room)}"></label>
+    <label>رقم الغرفة في مكة <span class="hint">(رقم الفندق، يتعمّر كي توصل)</span><input name="roomMakkah" value="${esc(v.roomMakkah || '')}"></label>
+    <label>رقم الغرفة في المدينة <span class="hint">(رقم الفندق)</span><input name="roomMadinah" value="${esc(v.roomMadinah || '')}"></label>
+    <label class="full">نوع الغرفة<div class="seg" id="rtSeg">${TYPES.map(ty => `<button type="button" data-t="${ty}" class="${v.roomType === ty ? 'on' : ''}">${ty}</button>`).join('')}</div></label>
     <div class="full hint" id="roomInfo"></div>
     <div class="sec-t">الثمن</div>
     <label>ثمن البيع للمعتمر (دينار)<input name="sell" value="${esc(v.sell)}" inputmode="decimal"></label>
@@ -228,13 +246,13 @@ function pilgrimForm(id) {
     $('#roomInfo').innerHTML = occ.length ? `في الغرفة ${r}: ${occ.map(x => esc(x.name)).join('، ')} (${ty0})` + (ty0 && ty0 !== rt ? ' <span class="warn">⚠️ نوع الغرفة مختلف</span>' : '') + (occ.length + 1 > CAP[rt] ? ' <span class="warn">⚠️ الغرفة كاملة</span>' : '') : `الغرفة ${r || '?'} فارغة: هذا أول واحد فيها.`;
   };
   $('#rtSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; rt = b.dataset.t; $('#rtSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if (!p && t.sell?.[rt]) f.sell.value = t.sell[rt]; upd(); };
-  f.room.oninput = () => { const r = num(f.room.value); const o = tripPilgrims(t).find(x => num(x.room) === r && x.id !== p?.id); if (o) { rt = o.roomType; $('#rtSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.t === rt)); } upd(); };
+  f.room.oninput = () => { const r = num(f.room.value); const o = tripPilgrims(t).find(x => num(x.room) === r && x.id !== p?.id); if (o) { if (!f.roomMakkah.value) f.roomMakkah.value = o.roomMakkah || ''; if (!f.roomMadinah.value) f.roomMadinah.value = o.roomMadinah || ''; rt = o.roomType; $('#rtSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.t === rt)); } upd(); };
   upd();
   if (p) { const c = calc(p); $('#pSum').innerHTML = `<div><small>ثمن البيع</small><b>${money(c.sell)}</b></div><div><small>دفع</small><b>${money(c.paid)}</b></div><div><small>الباقي</small><b class="${c.rem > 0 ? 'warn' : ''}">${money(c.rem)}</b></div><div><small>الربح</small><b>${money(c.profit)}</b></div><div><small>الحالة</small><b><span class="tag ${c.cls}">${c.st}</span></b></div>`; }
   const doSave = again => {
     const name = f.name.value.trim(); if (!name) { f.name.focus(); return toast('اكتب الاسم'); }
     const o = p || { id: uid('p'), no: DB.nextNo++, tripId: t.id, created: today() };
-    Object.assign(o, { name, phone: f.phone.value.trim(), role: f.role.value, passport: f.passport.value.trim().toUpperCase(), passportExp: f.passportExp.value, room: num(f.room.value) || 1, roomType: rt, sell: num(f.sell.value), buy: f.buy.value.trim() === '' ? null : num(f.buy.value), notes: f.notes.value.trim() });
+    Object.assign(o, { name, phone: f.phone.value.trim(), role: f.role.value, passport: f.passport.value.trim().toUpperCase(), passportExp: f.passportExp.value, room: num(f.room.value) || 1, roomMakkah: f.roomMakkah.value.trim(), roomMadinah: f.roomMadinah.value.trim(), roomType: rt, sell: num(f.sell.value), buy: f.buy.value.trim() === '' ? null : num(f.buy.value), notes: f.notes.value.trim() });
     if (!p) { DB.pilgrims.push(o); const first = num(f.first.value); if (first) DB.payments.push({ id: uid('y'), rcpt: DB.nextRcpt++, pilgrimId: o.id, date: today(), amount: first, method: f.method.value, note: 'دفعة عند التسجيل' }); }
     save(); toast(p ? 'تبدّل ✔' : `تسجّل ${name} ✔`); closeModal(); render(); if (again) pilgrimForm();
   };
@@ -346,8 +364,11 @@ function vRooms() {
     return `<div class="room ${st}"><div class="room-h"><b>الغرفة ${esc(k)}</b><span class="tag rt-${ty}">${ty}</span></div>
     <div class="beds">${Array.from({ length: Math.max(cap, l.length) }, (_, i) => `<div class="bed ${i < l.length ? 'f' : ''}"></div>`).join('')}</div>
     <div class="hint" style="font-size:12px;color:var(--muted);margin-bottom:6px">${l.length}/${cap} ${st === 'full' ? '· كاملة ✔' : st === 'over' ? '<span class="warn">· أكثر من السعة!</span>' : '· فيها ' + (cap - l.length) + ' بلاصة'} ${mix ? '<span class="warn">· أنواع مختلفة!</span>' : ''}</div>
+    <div class="hotel-r"><label>🕋 مكة<input value="${esc(l[0].roomMakkah || '')}" onchange="setHotelRoom('${esc(k)}','roomMakkah',this.value)" placeholder="رقم"></label><label>🕌 المدينة<input value="${esc(l[0].roomMadinah || '')}" onchange="setHotelRoom('${esc(k)}','roomMadinah',this.value)" placeholder="رقم"></label></div>
     <ul>${l.map(p => `<li><span>${esc(p.name)} ${p.role !== 'pilgrim' ? `<span class="tag role-${p.role}">${ROLES[p.role]}</span>` : ''}</span><a href="#" onclick="pilgrimForm('${p.id}');return false">✏️</a></li>`).join('')}</ul></div>`; }).join('')}</div>`;
 }
+
+function setHotelRoom(k, field, val) { tripPilgrims().filter(p => String(p.room) === String(k)).forEach(p => p[field] = val.trim()); save(); toast('تسجّل ✔'); }
 
 /* ===================== الرحلات ===================== */
 function vTrips() {
@@ -434,7 +455,7 @@ function importJSON() {
 }
 function exportExcel() {
   const t = trip(); const wb = XLSX.utils.book_new();
-  const P = tripPilgrims(t).sort((a, b) => num(a.room) - num(b.room)).map(p => { const c = calc(p); return { '#': p.no, 'الاسم': p.name, 'الجوال': p.phone, 'جواز السفر': p.passport, 'انتهاء الجواز': p.passportExp || '', 'الغرفة': p.room, 'نوع الغرفة': p.roomType, 'الصفة': ROLES[p.role], 'ثمن البيع': c.sell, 'ثمن الشراء': c.buy, 'المدفوع': c.paid, 'الباقي': c.rem, 'الحالة': c.st, 'ملاحظات': p.notes }; });
+  const P = tripPilgrims(t).sort((a, b) => num(a.room) - num(b.room)).map(p => { const c = calc(p); return { '#': p.no, 'الاسم': p.name, 'الجوال': p.phone, 'جواز السفر': p.passport, 'انتهاء الجواز': p.passportExp || '', 'الغرفة': p.room, 'غرفة مكة': p.roomMakkah || '', 'غرفة المدينة': p.roomMadinah || '', 'نوع الغرفة': p.roomType, 'الصفة': ROLES[p.role], 'ثمن البيع': c.sell, 'ثمن الشراء': c.buy, 'المدفوع': c.paid, 'الباقي': c.rem, 'الحالة': c.st, 'ملاحظات': p.notes }; });
   const ids = new Set(tripPilgrims(t).map(p => p.id));
   const Y = DB.payments.filter(y => ids.has(y.pilgrimId)).map(y => ({ 'وصل': y.rcpt, 'التاريخ': dfmt(y.date), 'المعتمر': DB.pilgrims.find(p => p.id === y.pilgrimId).name, 'المبلغ': num(y.amount), 'الطريقة': y.method, 'ملاحظة': y.note }));
   const A = DB.agency.filter(a => a.tripId === t.id).map(a => ({ 'التاريخ': dfmt(a.date), 'المبلغ': num(a.amount), 'الطريقة': a.method, 'رقم الوصل': a.ref, 'ملاحظة': a.note }));
@@ -465,9 +486,12 @@ function statement(id) {
   <h3>ثمن الرحلة: ${money(c.sell)} · المدفوع: ${money(c.paid)} · الباقي: ${money(c.rem)}</h3>`);
 }
 function printList() {
-  const ps = tripPilgrims().sort((a, b) => num(a.room) - num(b.room));
-  doPrint(head('قائمة المعتمرين') + `<table><thead><tr><th>#</th><th>الاسم</th><th>جواز السفر</th><th>الجوال</th><th>الغرفة</th><th>النوع</th><th>الثمن</th><th>دفع</th><th>الباقي</th></tr></thead><tbody>
-  ${ps.map((p, i) => { const c = calc(p); return `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td>${esc(p.passport)}</td><td>${esc(p.phone)}</td><td>${p.room}</td><td>${p.roomType}</td><td>${money(c.sell)}</td><td>${money(c.paid)}</td><td>${money(c.rem)}</td></tr>`; }).join('')}</tbody></table>`);
+  const ps = tripPilgrims(); const rooms = {}; ps.forEach(p => (rooms[p.room] = rooms[p.room] || []).push(p));
+  const keys = Object.keys(rooms).sort((a, b) => num(a) - num(b)); let n = 0;
+  doPrint(head('قائمة المعتمرين حسب الغرف') + `<table class="plist"><thead><tr><th style="width:26px">#</th><th>الاسم</th><th>جواز السفر</th><th>رقم الغرفة في المدينة</th><th>رقم الغرفة في مكة</th></tr></thead><tbody>
+  ${keys.map(k => { const l = rooms[k]; return `<tr class="rgrp"><td colspan="5">الغرفة ${esc(k)} · ${l[0].roomType} (${l.length})</td></tr>` +
+    l.map((p, i) => `<tr><td>${++n}</td><td>${esc(p.name)}</td><td>${esc(p.passport || '')}</td>${i === 0 ? `<td rowspan="${l.length}" class="rnum">${esc(p.roomMadinah || '')}</td><td rowspan="${l.length}" class="rnum">${esc(p.roomMakkah || '')}</td>` : ''}</tr>`).join(''); }).join('')}
+  </tbody></table><p style="margin-top:10px">المجموع: ${ps.length} معتمر · ${keys.length} غرفة</p>`);
 }
 function printRooms() {
   const ps = tripPilgrims(); const rooms = {}; ps.forEach(p => (rooms[p.room] = rooms[p.room] || []).push(p));

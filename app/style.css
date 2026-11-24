@@ -151,3 +151,36 @@ tfoot td{font-weight:800;background:#f8f5ee}
   .ph{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0f5c4d;padding-bottom:8px;margin-bottom:12px}
   .ph h2{margin:0;color:#0f5c4d}
 }
+
+.trip-strip{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin-bottom:16px;padding:12px 18px}
+.trip-strip b{font-size:16px;font-weight:800;color:var(--green)}
+.trip-strip span{color:#3d4541;font-weight:600}
+.trip-strip .btn{margin-inline-start:auto}
+.alerts{margin-top:18px}
+.al{display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:12px;margin-top:8px;font-weight:600;border:1px solid transparent}
+.al>span{font-size:18px;width:24px;text-align:center}
+.al>div{flex:1}
+.al>i{font-style:normal;opacity:.5}
+.al-r{background:var(--red-soft);color:#7a1a12;border-color:#f6c9c3}
+.al-a{background:var(--amber-soft);color:#6d4a00;border-color:#f3dfa5}
+.al-g{background:var(--green-soft);color:var(--green);border-color:#bfe0d2}
+.al-i{background:#f3f1ec;color:#3d4541}
+.gauges{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media (max-width:1150px){.gauges{grid-template-columns:repeat(2,1fr)}}
+.gauge{text-align:center;padding:18px 14px}
+.gauge svg{width:150px;height:150px;display:block;margin:0 auto 6px}
+.g-bg{fill:none;stroke:#eee8dc;stroke-width:12}
+.g-fg{fill:none;stroke-width:12;stroke-linecap:round}
+.g-pct{font:800 28px Cairo,sans-serif;text-anchor:middle;direction:ltr}
+.g-lbl{font:600 11px Cairo,sans-serif;fill:#8a918d;text-anchor:middle}
+.gauge h4{margin:4px 0 2px;font-size:15px;font-weight:800}
+.gauge>b{display:block;font-size:22px;font-weight:800}
+.gauge small{display:block;color:var(--muted);font-size:12px;margin-top:4px;line-height:1.7}
+.hotel-r{display:flex;gap:8px;margin-bottom:8px}
+.hotel-r label{flex:1;font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.hotel-r input{border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:#fdfcf9;width:100%}
+@media print{
+  .plist .rgrp td{background:#e3f0ea!important;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .plist .rnum{text-align:center;font-size:15px;font-weight:800;vertical-align:middle}
+  .plist tbody tr{page-break-inside:avoid}
+}
