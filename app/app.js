@@ -19,6 +19,18 @@ try { DB = JSON.parse(store.load() || 'null'); } catch (e) { DB = null; }
 if (!DB) DB = EMPTY();
 DB.settings = DB.settings || { owner: '', phone: '', shop: '' };
 DB.nextRcpt = DB.nextRcpt || 1;
+// تصحيح: ميساء امبارك و انيسة جبنون مرافقات في رحلة ديسمبر
+if (!DB.fixGuides1) {
+  const t1 = DB.trips.find(t => t.id === 't1');
+  if (t1) {
+    const g = ['ميساء امبارك', 'انيسة جبنون'];
+    DB.pilgrims.filter(p => p.tripId === 't1' && g.includes(String(p.name).trim()) && p.role === 'pilgrim').forEach(p => p.role = 'guide');
+    const cur = String(t1.guides || '').split(/[،,]/).map(x => x.trim()).filter(Boolean);
+    g.forEach(n => { if (!cur.includes(n) && DB.pilgrims.some(p => p.tripId === 't1' && p.name.trim() === n)) cur.push(n); });
+    t1.guides = cur.join('، ');
+  }
+  DB.fixGuides1 = true; setTimeout(save, 500);
+}
 let saveT;
 function save() {
   document.getElementById('saveState').textContent = '… جاري الحفظ';
