@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>مرافق برو — إدارة رحلات العمرة</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">🕋</div>
+      <div><b>مرافق برو</b><small>إدارة رحلات العمرة</small></div>
+    </div>
+    <label class="trip-pick">الرحلة
+      <select id="tripSel"></select>
+    </label>
+    <nav id="nav">
+      <a data-v="dash" class="on"><i>📊</i>لوحة القيادة</a>
+      <a data-v="pilgrims"><i>👥</i>المعتمرون</a>
+      <a data-v="payments"><i>💵</i>دفعات المعتمرين</a>
+      <a data-v="agency"><i>🏢</i>دفعاتي للوكالة</a>
+      <a data-v="rooms"><i>🛏️</i>الغرف</a>
+      <a data-v="trips"><i>✈️</i>الرحلات</a>
+      <a data-v="settings"><i>⚙️</i>الإعدادات والنسخ</a>
+    </nav>
+    <div class="side-foot" id="saveState">✔ محفوظ</div>
+  </aside>
+  <main>
+    <header class="top">
+      <h1 id="title">لوحة القيادة</h1>
+      <div class="top-act" id="topAct"></div>
+    </header>
+    <section id="view"></section>
+  </main>
+</div>
+
+<div id="modal" class="modal hidden"><div class="box" id="modalBox"></div></div>
+<div id="toast" class="toast hidden"></div>
+<div id="print" class="print-area"></div>
+
+<script src="xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
