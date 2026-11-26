@@ -90,6 +90,7 @@ object Sync {
                     savePilgrim(app, it)
                     applyServerStatus(app, it.str("status"))
                 }
+                handleHelper(app, r)
                 val list = r.optJSONArray("broadcasts")
                 if (list != null && list.length() > 0) {
                     val m = list.getJSONObject(0)   // الأحدث أولاً
@@ -110,6 +111,30 @@ object Sync {
             }
             main.post { done?.invoke() }
         }
+    }
+
+    /** مساعد المرافق: إنذار لكل نداء نجدة جديد، ويتسكّر وحدو كي يتحلّ النداء. */
+    private fun handleHelper(app: Context, r: JSONObject) {
+        val helper = r.optBoolean("helper", false)
+        Store.setHelper(app, helper)
+        val arr = if (helper) r.optJSONArray("helper_sos") else null
+        val open = HashSet<String>()
+        var fresh: JSONObject? = null
+        val seen = Store.helperAlerted(app)
+        if (arr != null) for (i in 0 until arr.length()) {
+            val s = arr.getJSONObject(i)
+            val id = s.str("id")
+            open.add(id)
+            if (id !in seen && fresh == null) fresh = s
+        }
+        if (fresh != null) {
+            val room = fresh.str("room")
+            val where = listOf(fresh.str("landmark"), if (room.isNotEmpty()) "غرفة $room" else "")
+                .filter { it.isNotEmpty() }.joinToString(" · ")
+            Notifier.helperAlarm(app, fresh.str("full_name"), where, Store.get(app, Store.GUIDE_PHONE))
+        }
+        if (open.isEmpty()) Notifier.cancelHelperAlarm(app)
+        Store.setHelperAlerted(app, open)
     }
 
     fun saveTrip(app: Context, t: JSONObject) {

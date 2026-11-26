@@ -45,5 +45,11 @@ object Store {
     fun guideMode(ctx: Context): Boolean = p(ctx).getBoolean("guide_mode", false)
     fun setGuideMode(ctx: Context, v: Boolean) { p(ctx).edit().putBoolean("guide_mode", v).apply() }
 
+    // مساعد المرافق: يصله إنذار كل نداء نجدة في الرحلة
+    fun isHelper(ctx: Context): Boolean = p(ctx).getBoolean("helper", false)
+    fun setHelper(ctx: Context, v: Boolean) { p(ctx).edit().putBoolean("helper", v).apply() }
+    fun helperAlerted(ctx: Context): Set<String> = p(ctx).getStringSet("helper_alerted", emptySet()) ?: emptySet()
+    fun setHelperAlerted(ctx: Context, v: Set<String>) { p(ctx).edit().putStringSet("helper_alerted", HashSet(v)).apply() }
+
     fun clear(ctx: Context) { p(ctx).edit().clear().apply() }
 }

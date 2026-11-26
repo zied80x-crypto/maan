@@ -35,9 +35,13 @@ class LocationService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             maybeSend()
-            handler.postDelayed(this, interval())
+            handler.postDelayed(this, tickInterval())
         }
     }
+
+    /** مساعد المرافق يفحص النداءات أسرع (بدون ما يبعث موقعو أكثر). */
+    private fun tickInterval(): Long =
+        if (Store.isHelper(this) && !Store.isSos(this)) minOf(interval(), Config.HELPER_POLL_MS) else interval()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -70,12 +74,12 @@ class LocationService : Service() {
     /** يضبط سرعة التحديث حسب الحالة (عادي أو استغاثة). */
     @SuppressLint("MissingPermission")
     private fun configure(force: Boolean) {
-        val m = if (Store.isSos(this)) "sos" else "ok"
+        val m = (if (Store.isSos(this)) "sos" else "ok") + (if (Store.isHelper(this)) "+h" else "")
         if (!force && m == mode) return
         mode = m
         try {
             fused.removeLocationUpdates(callback)
-            val priority = if (m == "sos") Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            val priority = if (Store.isSos(this)) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
             val req = LocationRequest.Builder(priority, interval())
                 .setMinUpdateIntervalMillis(interval() / 2)
                 .build()
@@ -90,7 +94,7 @@ class LocationService : Service() {
         } catch (e: Exception) {
         }
         handler.removeCallbacks(tick)
-        handler.postDelayed(tick, interval())
+        handler.postDelayed(tick, tickInterval())
     }
 
     private fun maybeSend() {
@@ -99,6 +103,11 @@ class LocationService : Service() {
             return
         }
         val now = System.currentTimeMillis()
+        val meGap = if (Store.isHelper(this)) Config.HELPER_POLL_MS * 8 / 10 else 60 * 1000L
+        if (now - lastMe > meGap) {
+            lastMe = now
+            Sync.refresh(this) { configure(false) }
+        }
         if (now - Store.lastSent(this) < interval() * 8 / 10) return
         Store.setLastSent(this, now)   // يمنع الإرسال المكرر في نفس اللحظة
 
@@ -107,10 +116,6 @@ class LocationService : Service() {
         val action = if (Store.sosPending(this)) "sos" else "update"
         Sync.send(this, action, fresh) { _, _ ->
             if (Store.token(this) == null) stopSelf() else configure(false)
-        }
-        if (now - lastMe > 60 * 1000L) {
-            lastMe = now
-            Sync.refresh(this)
         }
     }
 
