@@ -119,7 +119,14 @@ class LocationService : Service() {
         }
     }
 
+    /** المعتمر سكّر التطبيق من قائمة التطبيقات: بعض التليفونات توقف الخدمة معاه، نعاودو نشعلوها. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Tracker.kickSoon(this)
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
+        if (Store.token(this) != null) Tracker.kickSoon(this)
         handler.removeCallbacks(tick)
         try {
             fused.removeLocationUpdates(callback)

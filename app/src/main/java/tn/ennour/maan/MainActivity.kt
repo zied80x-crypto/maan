@@ -222,6 +222,7 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.startForegroundService(this, Intent(this, LocationService::class.java))
         } catch (e: Exception) {
         }
+        Tracker.schedule(this)
     }
 
     private fun isOnline(): Boolean {

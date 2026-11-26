@@ -11,8 +11,8 @@ android {
         applicationId = "tn.ennour.maan"
         minSdk = 24
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.8"
+        versionCode = 11
+        versionName = "1.9"
     }
     // مفتاح توقيع ثابت (يأتي من أسرار GitHub) حتى تتثبّت التحديثات فوق النسخة القديمة.
     // بدون الأسرار يُستعمل مفتاح مؤقت كما كان.
@@ -44,4 +44,5 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }
