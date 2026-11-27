@@ -166,8 +166,9 @@ tfoot td{font-weight:800;background:#f8f5ee}
 .al-a{background:var(--amber-soft);color:#6d4a00;border-color:#f3dfa5}
 .al-g{background:var(--green-soft);color:var(--green);border-color:#bfe0d2}
 .al-i{background:#f3f1ec;color:#3d4541}
-.gauges{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-@media (max-width:1150px){.gauges{grid-template-columns:repeat(2,1fr)}}
+.gauges{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+@media (max-width:1300px){.gauges{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:900px){.gauges{grid-template-columns:repeat(2,1fr)}}
 .gauge{text-align:center;padding:18px 14px}
 .gauge svg{width:150px;height:150px;display:block;margin:0 auto 6px}
 .g-bg{fill:none;stroke:#eee8dc;stroke-width:12}

@@ -13,12 +13,19 @@ const store = {
     try { localStorage.setItem(KEY, str); } catch (e) {}
   }
 };
-const EMPTY = () => ({ version: 1, settings: { owner: 'زياد بالشاوش', phone: '', shop: '' }, trips: [], pilgrims: [], payments: [], agency: [], nextNo: 1, nextRcpt: 1 });
+const EMPTY = () => ({ version: 1, settings: { owner: 'زياد بالشاوش', phone: '', shop: '' }, trips: [], pilgrims: [], payments: [], agency: [], expenses: [], nextNo: 1, nextRcpt: 1 });
 let DB;
 try { DB = JSON.parse(store.load() || 'null'); } catch (e) { DB = null; }
 if (!DB) DB = EMPTY();
 DB.settings = DB.settings || { owner: '', phone: '', shop: '' };
 DB.nextRcpt = DB.nextRcpt || 1;
+DB.expenses = DB.expenses || [];
+// الترقيم: كل رحلة تبدا من 1 (المعتمرين القدم يترقّمو من جديد حسب ترتيبهم)
+if (!DB.fixNoPerTrip) {
+  DB.trips.forEach(t => { DB.pilgrims.filter(p => p.tripId === t.id).sort((a, b) => (+a.no || 0) - (+b.no || 0)).forEach((p, i) => p.no = i + 1); });
+  DB.fixNoPerTrip = true; setTimeout(save, 500);
+}
+const nextNoFor = tid => 1 + Math.max(0, ...DB.pilgrims.filter(p => p.tripId === tid).map(p => +p.no || 0));
 // تصحيح: ميساء امبارك و انيسة جبنون مرافقات في رحلة ديسمبر
 if (!DB.fixGuides1) {
   const t1 = DB.trips.find(t => t.id === 't1');
@@ -80,7 +87,9 @@ function tripTotals(t = trip()) {
   const ps = tripPilgrims(t); let sell = 0, paid = 0, rem = 0, buy = 0, owing = 0, full = 0;
   ps.forEach(p => { const c = calc(p); sell += c.sell; paid += c.paid; rem += Math.max(c.rem, 0); buy += c.buy; if (c.rem > 0) owing++; if (c.st === 'خالص') full++; });
   const agPaid = t ? DB.agency.filter(a => a.tripId === t.id).reduce((s, a) => s + num(a.amount), 0) : 0;
-  return { n: ps.length, sell, paid, rem, buy, agPaid, agRem: buy - agPaid, profit: sell - buy, cash: paid - agPaid, owing, full };
+  const exp = t ? (DB.expenses || []).filter(e => e.tripId === t.id).reduce((s, e) => s + num(e.amount), 0) : 0;
+  // عندي في البيت = اللي قبضتو من المعتمرين − اللي عطيتو للوكالة − مصاريف الرحلة
+  return { n: ps.length, sell, paid, rem, buy, agPaid, agRem: buy - agPaid, exp, profit: sell - buy - exp, cash: paid - agPaid - exp, owing, full };
 }
 function passportWarn(p) {
   const t = DB.trips.find(t => t.id === p.tripId);
@@ -94,7 +103,7 @@ function passportWarn(p) {
 
 /* ===================== التنقّل ===================== */
 let view = 'dash';
-const TITLES = { dash: 'لوحة القيادة', pilgrims: 'المعتمرون', payments: 'دفعات المعتمرين', agency: 'دفعاتي للوكالة', rooms: 'الغرف', trips: 'الرحلات', settings: 'الإعدادات والنسخ' };
+const TITLES = { dash: 'لوحة القيادة', pilgrims: 'المعتمرون', payments: 'دفعات المعتمرين', agency: 'دفعاتي للوكالة', rooms: 'الغرف', trips: 'الرحلات', settings: 'الإعدادات والنسخ', expenses: 'مصاريف الرحلة' };
 $('#nav').addEventListener('click', e => { const a = e.target.closest('a'); if (a) go(a.dataset.v); });
 $('#tripSel').addEventListener('change', e => { curTrip = e.target.value; localStorage.setItem('curTrip', curTrip); render(); });
 function go(v) { view = v; document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v)); render(); }
@@ -111,7 +120,7 @@ function render() {
   $('#title').textContent = TITLES[view];
   $('#topAct').innerHTML = '';
   if (!DB.trips.length && view !== 'settings') return renderWelcome();
-  ({ dash: vDash, pilgrims: vPilgrims, payments: vPayments, agency: vAgency, rooms: vRooms, trips: vTrips, settings: vSettings })[view]();
+  ({ dash: vDash, pilgrims: vPilgrims, payments: vPayments, agency: vAgency, rooms: vRooms, trips: vTrips, settings: vSettings, expenses: vExpenses })[view]();
 }
 function acts(html) { $('#topAct').innerHTML = html; setTimeout(setTopH, 0); }
 
@@ -182,7 +191,8 @@ function vDash() {
     ${gauge(T.sell ? T.paid / T.sell * 100 : 0, '#13795f', 'قبضت من المعتمرين', money(T.paid), `من ${money(T.sell)}<br>${owing} معتمر ما كمّلوش الخلاص`)}
     ${gauge(T.buy ? T.agPaid / T.buy * 100 : 0, '#b8892d', 'عطيت للوكالة', money(T.agPaid), T.buy ? `من ${money(T.buy)}<br>باقي للوكالة ${money(T.agRem)}` : 'عمّر أسعار الشراء<br>في «الرحلات»')}
     ${gauge(T.sell ? T.rem / T.sell * 100 : 0, '#b42318', 'مزال عند المعتمرين', money(T.rem), `${owing} معتمر<br>${T.sell ? Math.round(T.rem / T.sell * 100) : 0}% من مجموع البيع`)}
-    ${gauge(T.sell ? T.profit / T.sell * 100 : 0, '#1d5fa8', 'الربح المتوقع', money(T.profit), T.buy ? `نسبة الربح من البيع<br>الفلوس عندك توّا ${money(T.cash)}` : 'عمّر أسعار الشراء<br>باش يطلع صحيح')}
+    ${gauge(T.sell ? T.profit / T.sell * 100 : 0, '#1d5fa8', 'الربح المتوقع', money(T.profit), T.buy ? `بعد ${money(T.exp)} مصاريف<br>نسبة الربح من البيع` : 'عمّر أسعار الشراء<br>باش يطلع صحيح')}
+    ${gauge(T.paid ? T.cash / T.paid * 100 : 0, '#6b4fa0', 'عندي في البيت', money(T.cash), `قبضت ${money(T.paid)} · للوكالة ${money(T.agPaid)}<br>مصاريف الرحلة ${money(T.exp)}`)}
   </div>
   <div class="card alerts"><h3>🔔 إخطارات الرحلة</h3>
     ${al.map(x => `<div class="al al-${x.lvl}" ${x.act ? `onclick="${x.act}" style="cursor:pointer"` : ''}><span>${x.ic}</span><div>${x.txt}</div>${x.act ? '<i>←</i>' : ''}</div>`).join('')}</div>`;
@@ -344,7 +354,7 @@ function pilgrimForm(id) {
   if (p) { const c = calc(p); $('#pSum').innerHTML = `<div><small>ثمن البيع</small><b>${money(c.sell)}</b></div><div><small>دفع</small><b>${money(c.paid)}</b></div><div><small>الباقي</small><b class="${c.rem > 0 ? 'warn' : ''}">${money(c.rem)}</b></div><div><small>الربح</small><b>${money(c.profit)}</b></div><div><small>الحالة</small><b><span class="tag ${c.cls}">${c.st}</span></b></div>`; }
   const doSave = again => {
     const name = f.name.value.trim(); if (!name) { f.name.focus(); return toast('اكتب الاسم'); }
-    const o = p || { id: uid('p'), no: DB.nextNo++, tripId: t.id, created: today() };
+    const o = p || { id: uid('p'), no: nextNoFor(t.id), tripId: t.id, created: today() };
     Object.assign(o, { name, phone: f.phone.value.trim(), role: f.role.value, passport: f.passport.value.trim().toUpperCase(), passportExp: f.passportExp.value, room: num(f.room.value) || 1, roomMakkah: f.roomMakkah.value.trim(), roomMadinah: f.roomMadinah.value.trim(), roomType: rt, guides: [...document.querySelectorAll('#gChk input:checked')].map(i => i.value), sell: num(f.sell.value), buy: f.buy.value.trim() === '' ? null : num(f.buy.value), notes: f.notes.value.trim() });
     if (!p) { DB.pilgrims.push(o); const first = num(f.first.value); if (first) DB.payments.push({ id: uid('y'), rcpt: DB.nextRcpt++, pilgrimId: o.id, date: today(), amount: first, method: f.method.value, note: 'دفعة عند التسجيل' }); }
     save(); toast(p ? 'تبدّل ✔' : `تسجّل ${name} ✔`); closeModal(); render(); if (again) pilgrimForm();
@@ -444,6 +454,38 @@ function agencyForm(id) {
   if (a) $('#aDel').onclick = () => confirmBox('تحذف الدفعة هاذي؟', () => { DB.agency = DB.agency.filter(x => x.id !== id); save(); closeModal(); render(); });
 }
 
+/* ===================== مصاريف الرحلة ===================== */
+const EXP_CATS = ['نقل', 'أكل', 'هدايا ومستلزمات', 'زيارات', 'اتصالات وإنترنت', 'إشهار', 'تأشيرة ووثائق', 'أخرى'];
+function vExpenses() {
+  const t = trip(), T = tripTotals(t);
+  acts(`<button class="btn pri" onclick="expenseForm()">➕ مصروف جديد</button>`);
+  const rows = (DB.expenses || []).filter(e => e.tripId === t.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const byCat = EXP_CATS.map(c => [c, rows.filter(e => e.cat === c).reduce((s, e) => s + num(e.amount), 0)]).filter(x => x[1]);
+  $('#view').innerHTML = `<div class="cards">
+    <div class="card kpi r"><small>مجموع المصاريف</small><b>${money(T.exp)}</b><span>${rows.length} مصروف</span></div>
+    <div class="card kpi b"><small>الربح المتوقع بعد المصاريف</small><b>${money(T.profit)}</b></div>
+    <div class="card kpi"><small>عندي في البيت</small><b>${money(T.cash)}</b></div></div>
+  <div class="grid2"><div class="tbl-wrap">${rows.length ? `<table><thead><tr><th>التاريخ</th><th>النوع</th><th>الوصف</th><th>المبلغ</th><th></th></tr></thead><tbody>
+    ${rows.map(e => `<tr><td>${dfmt(e.date)}</td><td><span class="tag">${esc(e.cat)}</span></td><td>${esc(e.desc)}</td><td class="num">${money(e.amount)}</td><td><button class="btn sm" onclick="expenseForm('${e.id}')">✏️</button></td></tr>`).join('')}
+    </tbody><tfoot><tr><td colspan="3">المجموع</td><td class="num">${money(T.exp)}</td><td></td></tr></tfoot></table>` : '<div class="empty">ما سجّلت حتى مصروف للرحلة هاذي. اضغط «➕ مصروف جديد».</div>'}</div>
+    <div class="card"><h3>حسب النوع</h3>${byCat.length ? `<table><tbody>${byCat.map(x => `<tr><td>${x[0]}</td><td class="num">${money(x[1])}</td></tr>`).join('')}</tbody></table>` : '<p class="hint" style="color:var(--muted)">—</p>'}</div></div>`;
+}
+function expenseForm(id) {
+  const e = id ? DB.expenses.find(x => x.id === id) : null;
+  modal(`<div class="box-h"><h2>🧾 ${e ? 'تعديل مصروف' : 'مصروف جديد'}</h2><button class="btn ghost" onclick="closeModal()">✕</button></div>
+  <div class="box-b"><div class="form" id="ef">
+    <label>المبلغ (دينار)<input name="amount" inputmode="decimal" value="${e ? e.amount : ''}"></label>
+    <label>التاريخ<input type="date" name="date" value="${e ? e.date : today()}"></label>
+    <label>النوع<select name="cat">${EXP_CATS.map(c => `<option ${e?.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+    <label>الوصف<input name="desc" value="${esc(e?.desc || '')}" placeholder="مثال: كراء حافلة للزيارات"></label>
+  </div></div><div class="box-f"><button class="btn pri" id="eSave">💾 حفظ</button>${e ? `<button class="btn danger" style="margin-inline-start:auto" id="eDel">🗑️ حذف</button>` : ''}</div>`);
+  const f = fields($('#ef')); f.amount.focus();
+  $('#eSave').onclick = () => { const amount = num(f.amount.value); if (!amount) return toast('اكتب المبلغ');
+    const o = e || { id: uid('e'), tripId: trip().id }; Object.assign(o, { amount, date: f.date.value, cat: f.cat.value, desc: f.desc.value.trim() });
+    if (!e) DB.expenses.push(o); save(); closeModal(); render(); toast('تسجّل ✔'); };
+  if (e) $('#eDel').onclick = () => confirmBox('تحذف المصروف هذا؟', () => { DB.expenses = DB.expenses.filter(x => x.id !== id); save(); closeModal(); render(); });
+}
+
 /* ===================== الغرف ===================== */
 function vRooms() {
   acts(`<button class="btn" onclick="printRooms()">🖨️ طباعة قائمة الغرف</button><button class="btn pri" onclick="pilgrimForm()">➕ معتمر جديد</button>`);
@@ -466,8 +508,8 @@ function setHotelRoom(k, field, val) { tripPilgrims().filter(p => String(p.room)
 /* ===================== الرحلات ===================== */
 function vTrips() {
   acts(`<button class="btn pri" onclick="tripForm()">✈️ رحلة جديدة</button>`);
-  $('#view').innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>الرحلة</th><th>الذهاب</th><th>العودة</th><th>الطيران</th><th>رئيس المجموعة</th><th>المعتمرون</th><th>المقبوض</th><th>الربح</th><th></th></tr></thead><tbody>
-  ${DB.trips.map(t => { const T = tripTotals(t); return `<tr><td class="name">${esc(t.name)}</td><td>${dfmt(t.dep)}</td><td>${dfmt(t.ret)}</td><td>${esc(t.flightGo)} / ${esc(t.flightBack)}</td><td>${esc(t.leader)}</td><td>${T.n}</td><td class="num">${money(T.paid)}</td><td class="num">${money(T.profit)}</td>
+  $('#view').innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>الرحلة</th><th>الذهاب</th><th>العودة</th><th>الطيران</th><th>رئيس المجموعة</th><th>المعتمرون</th><th>المقبوض</th><th>المصاريف</th><th>الربح</th><th></th></tr></thead><tbody>
+  ${DB.trips.map(t => { const T = tripTotals(t); return `<tr><td class="name">${esc(t.name)}</td><td>${dfmt(t.dep)}</td><td>${dfmt(t.ret)}</td><td>${esc(t.flightGo)} / ${esc(t.flightBack)}</td><td>${esc(t.leader)}</td><td>${T.n}</td><td class="num">${money(T.paid)}</td><td class="num">${money(T.exp)}</td><td class="num">${money(T.profit)}</td>
   <td><button class="btn sm" onclick="tripForm('${t.id}')">✏️ تعديل</button></td></tr>`; }).join('')}</tbody></table></div>`;
 }
 function tripForm(id) {
@@ -504,7 +546,7 @@ function tripForm(id) {
     migrateTrip(o); if (!t) { DB.trips.push(o); curTrip = o.id; localStorage.setItem('curTrip', curTrip); } save(); closeModal(); if (view === 'dash' || !t) go(t ? view : 'dash'); else render(); toast('الرحلة تسجّلت ✔'); };
   if (t && $('#tDel')) $('#tDel').onclick = () => confirmBox(`تحذف «${esc(t.name)}» بكل معتمرينها ودفعاتها؟`, () => {
     const ids = new Set(DB.pilgrims.filter(p => p.tripId === t.id).map(p => p.id));
-    DB.payments = DB.payments.filter(y => !ids.has(y.pilgrimId)); DB.pilgrims = DB.pilgrims.filter(p => p.tripId !== t.id); DB.agency = DB.agency.filter(a => a.tripId !== t.id); DB.trips = DB.trips.filter(x => x.id !== t.id);
+    DB.payments = DB.payments.filter(y => !ids.has(y.pilgrimId)); DB.pilgrims = DB.pilgrims.filter(p => p.tripId !== t.id); DB.agency = DB.agency.filter(a => a.tripId !== t.id); DB.expenses = (DB.expenses || []).filter(e => e.tripId !== t.id); DB.trips = DB.trips.filter(x => x.id !== t.id);
     curTrip = ''; save(); closeModal(); go('dash'); });
 }
 
@@ -555,9 +597,11 @@ function exportExcel() {
   const Y = DB.payments.filter(y => ids.has(y.pilgrimId)).map(y => ({ 'وصل': y.rcpt, 'التاريخ': dfmt(y.date), 'المعتمر': DB.pilgrims.find(p => p.id === y.pilgrimId).name, 'المبلغ': num(y.amount), 'الطريقة': y.method, 'ملاحظة': y.note }));
   const A = DB.agency.filter(a => a.tripId === t.id).map(a => ({ 'التاريخ': dfmt(a.date), 'المبلغ': num(a.amount), 'الطريقة': a.method, 'رقم الوصل': a.ref, 'ملاحظة': a.note }));
   const T = tripTotals(t);
-  const S = [['الرحلة', t.name], ['الوكالة', t.agency], ['الذهاب', dfmt(t.dep) + ' ' + t.flightGo + ' ' + t.timeGo], ['العودة', dfmt(t.ret) + ' ' + t.flightBack + ' ' + t.timeBack], ['رئيس المجموعة', t.leader], ['المرافقون', t.guides], [], ['عدد المعتمرين', T.n], ['مجموع البيع', T.sell], ['المقبوض', T.paid], ['الباقي عند المعتمرين', T.rem], ['مجموع الشراء', T.buy], ['دفعت للوكالة', T.agPaid], ['الباقي للوكالة', T.agRem], ['الربح', T.profit]];
+  const S = [['الرحلة', t.name], ['الوكالة', t.agency], ['الذهاب', dfmt(t.dep) + ' ' + t.flightGo + ' ' + t.timeGo], ['العودة', dfmt(t.ret) + ' ' + t.flightBack + ' ' + t.timeBack], ['رئيس المجموعة', t.leader], ['المرافقون', t.guides], [], ['عدد المعتمرين', T.n], ['مجموع البيع', T.sell], ['المقبوض', T.paid], ['الباقي عند المعتمرين', T.rem], ['مجموع الشراء', T.buy], ['دفعت للوكالة', T.agPaid], ['الباقي للوكالة', T.agRem], ['مصاريف الرحلة', T.exp], ['الربح', T.profit], ['عندي في البيت', T.cash]];
   const add = (ws, n) => { ws['!views'] = [{ RTL: true }]; XLSX.utils.book_append_sheet(wb, ws, n); };
   add(XLSX.utils.aoa_to_sheet(S), 'الملخص'); add(XLSX.utils.json_to_sheet(P), 'المعتمرون'); add(XLSX.utils.json_to_sheet(Y.length ? Y : [{ 'وصل': '' }]), 'دفعات المعتمرين'); add(XLSX.utils.json_to_sheet(A.length ? A : [{ 'التاريخ': '' }]), 'دفعات الوكالة');
+  const X = (DB.expenses || []).filter(e => e.tripId === t.id).map(e => ({ 'التاريخ': dfmt(e.date), 'النوع': e.cat, 'الوصف': e.desc, 'المبلغ': num(e.amount) }));
+  add(XLSX.utils.json_to_sheet(X.length ? X : [{ 'التاريخ': '' }]), 'مصاريف الرحلة');
   wb.Workbook = { Views: [{ RTL: true }] };
   download(`${t.name}.xlsx`, XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); toast('ملف Excel خرج ✔');
 }
