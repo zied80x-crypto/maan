@@ -55,5 +55,9 @@ object Store {
     fun isWalk(ctx: Context): Boolean = p(ctx).getBoolean("walk", false)
     fun setWalk(ctx: Context, v: Boolean) { p(ctx).edit().putBoolean("walk", v).apply() }
 
+    // آخر محاولة إرسال فشلت لأن ما فماش إنترنت
+    fun netFail(ctx: Context): Boolean = p(ctx).getBoolean("net_fail", false)
+    fun setNetFail(ctx: Context, v: Boolean) { p(ctx).edit().putBoolean("net_fail", v).apply() }
+
     fun clear(ctx: Context) { p(ctx).edit().clear().apply() }
 }

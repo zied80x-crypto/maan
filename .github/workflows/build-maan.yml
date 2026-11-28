@@ -2,7 +2,7 @@ name: Build Maan APK
 
 on:
   push:
-    branches: [maan]
+    branches: [maan, ble-relay]
   workflow_dispatch:
 
 permissions:
@@ -45,7 +45,9 @@ jobs:
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk maan.apk
           VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          gh release create "v${VER}-${{ github.run_number }}" maan.apk \
+          EXTRA=""
+          if [ "${{ github.ref_name }}" != "maan" ]; then EXTRA="--prerelease --latest=false"; fi
+          gh release create "v${VER}-${{ github.run_number }}" maan.apk $EXTRA \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Maan ${VER} (build ${{ github.run_number }})" \
             --notes "Android app for pilgrims and guides. Download maan.apk and install."

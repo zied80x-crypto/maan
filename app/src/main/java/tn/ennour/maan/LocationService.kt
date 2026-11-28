@@ -120,6 +120,20 @@ class LocationService : Service() {
         val action = if (Store.sosPending(this)) "sos" else "update"
         Sync.send(this, action, fresh) { _, _ ->
             if (Store.token(this) == null) stopSelf() else configure(false)
+            relayStep(fresh)
+        }
+    }
+
+    /** بلوتوث: بلا إنترنت نبثّ موقعنا، وبإنترنت نسمع الأقربين ونرحّل رسائلهم. */
+    private fun relayStep(loc: Location?) {
+        try {
+            if (Store.netFail(this)) {
+                Relay.advertise(this, loc ?: lastLoc, null, Store.isSos(this) || Store.sosPending(this))
+            } else {
+                Relay.stopAdvertise(this)
+                Relay.scanOnce(this)
+            }
+        } catch (e: Exception) {
         }
     }
 
@@ -131,6 +145,7 @@ class LocationService : Service() {
 
     override fun onDestroy() {
         Fall.stop()
+        Relay.stopAdvertise(this)
         if (Store.token(this) != null) Tracker.kickSoon(this)
         handler.removeCallbacks(tick)
         try {

@@ -57,6 +57,7 @@ object Sync {
 
                 val r = Api.call(action, b, token)
                 ok = true
+                Store.setNetFail(app, false)
                 Store.setLastSent(app, System.currentTimeMillis())
                 Store.setLastOk(app, System.currentTimeMillis())
                 when (action) {
@@ -70,6 +71,9 @@ object Sync {
                 if (e.code == 401) Store.clear(app)
             } catch (e: Exception) {
                 err = "لا يوجد اتصال بالإنترنت"
+                Store.setNetFail(app, true)
+                // بلا إنترنت: نبثّ موقعنا بالبلوتوث لعل معتمراً قريباً يرحّله
+                try { Relay.advertise(app, loc, battery(app), action == "sos" || Store.sosPending(app) || Store.isSos(app)) } catch (e2: Exception) { }
             }
             main.post { done?.invoke(ok, err) }
         }
@@ -87,6 +91,7 @@ object Sync {
             try {
                 val r = Api.call("me", JSONObject(), token)
                 r.optJSONObject("trip")?.let { saveTrip(app, it) }
+                r.str("relay_key").let { if (it.length == 32) Store.set(app, "relay_key", it) }
                 r.optJSONObject("pilgrim")?.let {
                     savePilgrim(app, it)
                     applyServerStatus(app, it.str("status"))
@@ -111,6 +116,27 @@ object Sync {
             } catch (e: Exception) {
             }
             main.post { done?.invoke() }
+        }
+    }
+
+    /** يرحّل للخادم مواقع معتمرين قريبين التقطناها بالبلوتوث. */
+    fun relay(ctx: Context, items: List<String>, done: (Boolean) -> Unit) {
+        val app = ctx.applicationContext
+        val token = Store.token(app)
+        if (token == null || items.isEmpty()) { done(false); return }
+        io.execute {
+            var ok = false
+            try {
+                val arr = org.json.JSONArray()
+                items.forEach { arr.put(it) }
+                Api.call("relay", JSONObject().put("items", arr), token)
+                ok = true
+            } catch (e: Api.ApiException) {
+                if (e.code == 401) Store.clear(app)
+                if (e.code == 501) ok = true   // الخادم ما يدعمش الميزة: نترك الرسائل
+            } catch (e: Exception) {
+            }
+            main.post { done(ok) }
         }
     }
 

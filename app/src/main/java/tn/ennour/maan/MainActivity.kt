@@ -172,6 +172,7 @@ class MainActivity : AppCompatActivity() {
     private fun askPermissions() {
         val list = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 33) list.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (Build.VERSION.SDK_INT >= 31) { list.add(Manifest.permission.BLUETOOTH_SCAN); list.add(Manifest.permission.BLUETOOTH_ADVERTISE) }
         list.add(Manifest.permission.CALL_PHONE)   // الاتصال بالمرافق وحدو بعد النجدة
         val missing = list.filter { !granted(it) && !(it == Manifest.permission.CALL_PHONE && Store.get(this, "asked_call") == "1") }
         if (missing.contains(Manifest.permission.CALL_PHONE)) Store.set(this, "asked_call", "1")
