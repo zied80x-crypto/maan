@@ -51,5 +51,9 @@ object Store {
     fun helperAlerted(ctx: Context): Set<String> = p(ctx).getStringSet("helper_alerted", emptySet()) ?: emptySet()
     fun setHelperAlerted(ctx: Context, v: Set<String>) { p(ctx).edit().putStringSet("helper_alerted", HashSet(v)).apply() }
 
+    // «المشي مع المجموعة» مشعول عند المرافق
+    fun isWalk(ctx: Context): Boolean = p(ctx).getBoolean("walk", false)
+    fun setWalk(ctx: Context, v: Boolean) { p(ctx).edit().putBoolean("walk", v).apply() }
+
     fun clear(ctx: Context) { p(ctx).edit().clear().apply() }
 }

@@ -12,5 +12,6 @@ object Config {
 
     const val NORMAL_INTERVAL_MS = 3 * 60 * 1000L   // تحديث الموقع كل 3 دقائق
     const val SOS_INTERVAL_MS = 15 * 1000L          // كل 15 ثانية أثناء الاستغاثة
+    const val WALK_INTERVAL_MS = 30 * 1000L         // «المشي مع المجموعة»: الموقع كل 30 ثانية
     const val HELPER_POLL_MS = 30 * 1000L           // مساعد المرافق: يفحص نداءات النجدة كل 30 ثانية
 }

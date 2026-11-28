@@ -172,7 +172,9 @@ class MainActivity : AppCompatActivity() {
     private fun askPermissions() {
         val list = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 33) list.add(Manifest.permission.POST_NOTIFICATIONS)
-        val missing = list.filter { !granted(it) }
+        list.add(Manifest.permission.CALL_PHONE)   // الاتصال بالمرافق وحدو بعد النجدة
+        val missing = list.filter { !granted(it) && !(it == Manifest.permission.CALL_PHONE && Store.get(this, "asked_call") == "1") }
+        if (missing.contains(Manifest.permission.CALL_PHONE)) Store.set(this, "asked_call", "1")
         if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray())
         else if (Loc.allowed(this)) requestBackgroundAndBattery()
     }
@@ -357,19 +359,25 @@ class MainActivity : AppCompatActivity() {
         checkLocationReady()
         startTracking()
 
-        // 1) فوراً بآخر موقع معروف
-        Loc.last(this) { quick ->
-            Sync.send(this, "sos", quick) { ok, _ ->
-                if (!ok) toast("لا يوجد إنترنت. سنعيد المحاولة تلقائياً. اتصل بالمرافق.")
-                startTracking()
-                render()
-            }
-            // 2) ثم موقع جديد دقيق
-            Loc.current(this, 12000) { fresh ->
-                if (fresh != null && Store.isSos(this)) {
-                    Sync.send(this, "sos", fresh) { _, _ -> render() }
-                }
-            }
+        // يبعث فوراً بآخر موقع معروف، ومبعد موقع جديد دقيق
+        Sos.trigger(this) { ok ->
+            if (!ok) toast("لا يوجد إنترنت. سنعيد المحاولة تلقائياً. اتصل بالمرافق.")
+            startTracking()
+            render()
+        }
+        // ومبعد ثانيتين: يتصل بالمرافق وحدو
+        handler.postDelayed({ if (!isFinishing && Store.isSos(this)) autoCall() }, 2000)
+    }
+
+    /** اتصال مباشر بالمرافق (إذا قبل الإذن)، وإلا نحلّو الرقم جاهز. */
+    private fun autoCall() {
+        val phone = guidePhone()
+        if (phone.isEmpty()) return
+        val direct = granted(Manifest.permission.CALL_PHONE)
+        try {
+            startActivity(Intent(if (direct) Intent.ACTION_CALL else Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+        } catch (e: Exception) {
+            try { startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) } catch (e2: Exception) {}
         }
     }
 

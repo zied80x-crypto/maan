@@ -65,21 +65,25 @@ class LocationService : Service() {
             return START_NOT_STICKY
         }
         configure(true)
+        Fall.start(this)
         return START_STICKY
     }
 
-    private fun interval(): Long =
-        if (Store.isSos(this)) Config.SOS_INTERVAL_MS else Config.NORMAL_INTERVAL_MS
+    private fun interval(): Long = when {
+        Store.isSos(this) -> Config.SOS_INTERVAL_MS
+        Store.isWalk(this) -> Config.WALK_INTERVAL_MS
+        else -> Config.NORMAL_INTERVAL_MS
+    }
 
     /** يضبط سرعة التحديث حسب الحالة (عادي أو استغاثة). */
     @SuppressLint("MissingPermission")
     private fun configure(force: Boolean) {
-        val m = (if (Store.isSos(this)) "sos" else "ok") + (if (Store.isHelper(this)) "+h" else "")
+        val m = (if (Store.isSos(this)) "sos" else "ok") + (if (Store.isHelper(this)) "+h" else "") + (if (Store.isWalk(this)) "+w" else "")
         if (!force && m == mode) return
         mode = m
         try {
             fused.removeLocationUpdates(callback)
-            val priority = if (Store.isSos(this)) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            val priority = if (Store.isSos(this) || Store.isWalk(this)) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
             val req = LocationRequest.Builder(priority, interval())
                 .setMinUpdateIntervalMillis(interval() / 2)
                 .build()
@@ -126,6 +130,7 @@ class LocationService : Service() {
     }
 
     override fun onDestroy() {
+        Fall.stop()
         if (Store.token(this) != null) Tracker.kickSoon(this)
         handler.removeCallbacks(tick)
         try {

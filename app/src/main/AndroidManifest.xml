@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
@@ -50,6 +52,10 @@
             android:name=".LocationService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".FallReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".BootReceiver"

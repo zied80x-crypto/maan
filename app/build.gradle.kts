@@ -11,8 +11,8 @@ android {
         applicationId = "tn.ennour.maan"
         minSdk = 24
         targetSdk = 34
-        versionCode = 11
-        versionName = "1.9"
+        versionCode = 12
+        versionName = "2.0"
     }
     // مفتاح توقيع ثابت (يأتي من أسرار GitHub) حتى تتثبّت التحديثات فوق النسخة القديمة.
     // بدون الأسرار يُستعمل مفتاح مؤقت كما كان.

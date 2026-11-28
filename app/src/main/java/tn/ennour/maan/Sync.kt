@@ -64,6 +64,7 @@ object Sync {
                     "ok" -> { Store.setSosPending(app, false); Store.set(app, Store.STATUS, "ok") }
                     else -> applyServerStatus(app, r.str("status"))
                 }
+                if (r.has("walk")) Store.setWalk(app, r.optBoolean("walk", false))
             } catch (e: Api.ApiException) {
                 err = e.message
                 if (e.code == 401) Store.clear(app)
@@ -143,6 +144,7 @@ object Sync {
         Store.set(app, Store.CITY, t.str("current_city"))
         Store.set(app, Store.GUIDE_NAME, t.str("guide_name"))
         Store.set(app, Store.GUIDE_PHONE, t.str("guide_phone"))
+        Store.setWalk(app, t.optBoolean("walk", false))
     }
 
     /** بيانات المعتمر كما يراها الخادم: المرافق قد يعدّل الاسم والغرفة والفندق. */
