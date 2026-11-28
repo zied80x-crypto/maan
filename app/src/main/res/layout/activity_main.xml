@@ -177,6 +177,17 @@
             app:cornerRadius="20dp" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnArrow"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:layout_marginTop="8dp"
+            android:text="🧭  تهت؟ سهم نحو الفندق (بدون إنترنت)"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/hotel"
+            app:cornerRadius="20dp" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnFamily"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"

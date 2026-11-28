@@ -120,6 +120,7 @@ class MainActivity : AppCompatActivity() {
         btnFamily = findViewById(R.id.btnFamily)
         btnFamily.setOnClickListener { familyShare() }
         findViewById<MaterialButton>(R.id.btnHotel).setOnClickListener { showHotelCard() }
+        findViewById<MaterialButton>(R.id.btnArrow).setOnClickListener { startActivity(Intent(this, LostActivity::class.java)) }
         tvStatus.setOnClickListener {
             when {
                 !Loc.allowed(this) || !Loc.enabled(this) -> checkLocationReady()

@@ -45,6 +45,12 @@ object Fall : SensorEventListener {
     private const val CH = "fall_alarm"
     const val NOTIF_ID = 3
     const val WAIT_MS = 30_000L
+    const val SHAKE_WAIT_MS = 8_000L
+    private const val SHAKE_PEAK = 20.0f     // م/ث² : هزّة قوية
+    private const val SHAKE_COUNT = 6        // 6 هزّات في 2.5 ثانية
+    private val shakes = ArrayDeque<Long>()
+    private var lastSpike = 0L
+    private var shakeMode = false
     private const val FREE_FALL = 3.0f      // م/ث² (أقل من ثلث الجاذبية)
     private const val IMPACT = 27.0f        // م/ث² (قرابة 2.8 مرة الجاذبية)
     private var sm: SensorManager? = null
@@ -58,7 +64,7 @@ object Fall : SensorEventListener {
             Store.set(c, "fall_pending", "")
             cancelNotice(c)
             Sos.trigger(c)
-            Notifier.message(c, "🚨 تبعث نداء النجدة", "ما جاوبتش بعد الطيحة، المرافق وصلو نداء وهو في الطريق إليك.")
+            Notifier.message(c, "🚨 تبعث نداء النجدة", if (shakeMode) "المرافق وصلو نداء النجدة." else "ما جاوبتش بعد الطيحة، المرافق وصلو نداء وهو في الطريق إليك.")
         }
     }
 
@@ -82,6 +88,19 @@ object Fall : SensorEventListener {
         val c = app ?: return
         val g = sqrt(e.values[0] * e.values[0] + e.values[1] * e.values[1] + e.values[2] * e.values[2])
         val now = System.currentTimeMillis()
+        if (g > SHAKE_PEAK && now - lastSpike > 120) {
+            lastSpike = now
+            shakes.addLast(now)
+            while (shakes.isNotEmpty() && now - shakes.first() > 2500) shakes.removeFirst()
+            if (shakes.size >= SHAKE_COUNT) {
+                shakes.clear()
+                if (now - lastAlert >= 60_000 && !Store.isSos(c) && Store.token(c) != null) {
+                    lastAlert = now
+                    ask(c, true)
+                }
+                return
+            }
+        }
         if (g < FREE_FALL) { if (freeFallAt == 0L || now - freeFallAt > 1500) freeFallAt = now; return }
         if (g > IMPACT && freeFallAt != 0L && now - freeFallAt in 80L..1000L) {
             freeFallAt = 0L
@@ -92,10 +111,12 @@ object Fall : SensorEventListener {
     }
 
     /** «لاباس عليك؟» مع عدّ 30 ثانية. */
-    private fun ask(c: Context) {
+    private fun ask(c: Context, shake: Boolean = false) {
+        shakeMode = shake
+        val wait = if (shake) SHAKE_WAIT_MS else WAIT_MS
         Store.set(c, "fall_pending", "1")
         handler.removeCallbacks(fire)
-        handler.postDelayed(fire, WAIT_MS)
+        handler.postDelayed(fire, wait)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(c, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
@@ -116,19 +137,19 @@ object Fall : SensorEventListener {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(c, CH)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("لاباس عليك؟ 🤍")
-            .setContentText("حسّينا بطيحة. اضغط «أنا بخير»، وإلا بعد 30 ثانية نبعثو نداء النجدة للمرافق.")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("حسّينا بطيحة. اضغط «أنا بخير»، وإلا بعد 30 ثانية نبعثو نداء النجدة للمرافق."))
+            .setContentTitle(if (shake) "هزّيت التليفون: تحب نجدة؟ 🆘" else "لاباس عليك؟ 🤍")
+            .setContentText(if (shake) "اضغط «أنا بخير» للإلغاء، وإلا بعد 8 ثواني نبعثو نداء النجدة للمرافق." else "حسّينا بطيحة. اضغط «أنا بخير»، وإلا بعد 30 ثانية نبعثو نداء النجدة للمرافق.")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(if (shake) "اضغط «أنا بخير» للإلغاء، وإلا بعد 8 ثواني نبعثو نداء النجدة للمرافق." else "حسّينا بطيحة. اضغط «أنا بخير»، وإلا بعد 30 ثانية نبعثو نداء النجدة للمرافق."))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM))
             .setVibrate(longArrayOf(0, 600, 300, 600, 300, 600))
-            .setTimeoutAfter(WAIT_MS + 2000)
+            .setTimeoutAfter(wait + 2000)
             .setContentIntent(open)
             .addAction(android.R.drawable.checkbox_on_background, "✅ أنا بخير", ok)
             .addAction(android.R.drawable.ic_dialog_alert, "🚨 اطلب النجدة", help)
-            .setUsesChronometer(true).setChronometerCountDown(true).setWhen(System.currentTimeMillis() + WAIT_MS)
+            .setUsesChronometer(true).setChronometerCountDown(true).setWhen(System.currentTimeMillis() + wait)
             .build()
         n.flags = n.flags or Notification.FLAG_INSISTENT
         try { NotificationManagerCompat.from(c).notify(NOTIF_ID, n) } catch (e: SecurityException) {}

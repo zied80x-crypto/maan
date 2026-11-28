@@ -50,6 +50,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".LostActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".GuideActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

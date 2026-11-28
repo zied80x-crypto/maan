@@ -66,12 +66,14 @@ object Sync {
                     else -> applyServerStatus(app, r.str("status"))
                 }
                 if (r.has("walk")) Store.setWalk(app, r.optBoolean("walk", false))
+                flushTrail(app, token)
             } catch (e: Api.ApiException) {
                 err = e.message
                 if (e.code == 401) Store.clear(app)
             } catch (e: Exception) {
                 err = "لا يوجد اتصال بالإنترنت"
                 Store.setNetFail(app, true)
+                if (loc != null && action != "ok") Store.addTrail(app, loc.latitude, loc.longitude, loc.time / 1000)
                 // بلا إنترنت: نبثّ موقعنا بالبلوتوث لعل معتمراً قريباً يرحّله
                 try { Relay.advertise(app, loc, battery(app), action == "sos" || Store.sosPending(app) || Store.isSos(app)) } catch (e2: Exception) { }
             }
@@ -116,6 +118,24 @@ object Sync {
             } catch (e: Exception) {
             }
             main.post { done?.invoke() }
+        }
+    }
+
+    /** بعد رجوع الإنترنت: نبعثو النقاط اللي جمعناها وقت الانقطاع (المرافق يشوف المسار الحقيقي). */
+    private fun flushTrail(app: Context, token: String) {
+        val q = Store.trailQueue(app)
+        if (q.length() == 0) return
+        try {
+            val pts = org.json.JSONArray()
+            for (i in 0 until q.length()) {
+                val x = q.getJSONArray(i)
+                pts.put(JSONObject().put("lat", x.getDouble(0)).put("lng", x.getDouble(1)).put("t", x.getLong(2)))
+            }
+            Api.call("trail", JSONObject().put("points", pts), token)
+            Store.clearTrail(app)
+        } catch (e: Api.ApiException) {
+            if (e.code in 400..499) Store.clearTrail(app)   // خادم قديم أو بيانات مرفوضة
+        } catch (e: Exception) {
         }
     }
 

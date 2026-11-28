@@ -59,5 +59,24 @@ object Store {
     fun netFail(ctx: Context): Boolean = p(ctx).getBoolean("net_fail", false)
     fun setNetFail(ctx: Context, v: Boolean) { p(ctx).edit().putBoolean("net_fail", v).apply() }
 
+    // نقاط الموقع اللي ما تبعثتش بسبب انقطاع الإنترنت: [[lat,lng,tSec],...]
+    @Synchronized
+    fun addTrail(ctx: Context, lat: Double, lng: Double, tSec: Long) {
+        val arr = try { org.json.JSONArray(p(ctx).getString("trail_q", "[]")) } catch (e: Exception) { org.json.JSONArray() }
+        if (arr.length() > 0) {
+            val last = arr.getJSONArray(arr.length() - 1)
+            if (last.getLong(2) == tSec) return
+        }
+        arr.put(org.json.JSONArray().put(lat).put(lng).put(tSec))
+        val out = org.json.JSONArray()
+        for (i in maxOf(0, arr.length() - 120) until arr.length()) out.put(arr.get(i))
+        p(ctx).edit().putString("trail_q", out.toString()).apply()
+    }
+    @Synchronized
+    fun trailQueue(ctx: Context): org.json.JSONArray =
+        try { org.json.JSONArray(p(ctx).getString("trail_q", "[]")) } catch (e: Exception) { org.json.JSONArray() }
+    @Synchronized
+    fun clearTrail(ctx: Context) { p(ctx).edit().remove("trail_q").apply() }
+
     fun clear(ctx: Context) { p(ctx).edit().clear().apply() }
 }
